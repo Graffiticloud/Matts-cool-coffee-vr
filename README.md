@@ -7,12 +7,13 @@ Interactive 3D teaching models that run in any browser and in VR or mixed realit
 | Matt's Cool Coffee (original animation) | https://graffiticloud.github.io/Matts-cool-coffee-vr/ |
 | Matt's Cool Coffee, inside: BAA experiential-marketing quiz | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/baa-cafe/ |
 | La Sagrada Família 360: BAA heritage, tourism and commerce quiz | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/sagrada-360/ |
+| The Pyramid Field: events health and safety, crowds, operations, servicescape and experience | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/pyramid-field/ |
 
 ## How it fits together
 
 ```
 engine/
-  kit.js       building blocks: rounded blocks, people, queues, walkers, buildings, trees, cars, tables, lights
+  kit.js       building blocks: rounded blocks, people, queues, walkers, instanced crowds, buildings, trees, cars, tables, lights
   runtime.js   rendering, VR/mixed reality, views, grab and zoom, hotspot pins, quiz, scoring, tutor, panels
   config.js    the two web addresses for the tutor and the score sheet (shared by every model)
 models/<id>/

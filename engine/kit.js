@@ -150,8 +150,8 @@ export class Kit {
     p.userData.armL.rotation.z = -s * 0.8; p.userData.armR.rotation.z = s * 0.8;
   }
   /* seated person who sips and nods; add to any parent */
-  seated(parent, x, y, z, ry = 0, shirt){
-    const p = this.anim(this.person(shirt, true)); p.position.set(x, y, z); p.rotation.y = ry; parent.add(p);
+  seated(parent, x, y, z, ry = 0, shirt, scale = 0.9){
+    const p = this.anim(this.person(shirt, true)); p.position.set(x, y, z); p.rotation.y = ry; p.scale.setScalar(scale); parent.add(p);
     const ph = this.rand() * TAU;
     this.onTick(({ ph:P }) => {
       p.userData.head.rotation.z = 0.12 * Math.sin(P * 2 + ph);
@@ -162,7 +162,7 @@ export class Kit {
 
   /* looping queue: count people step forward every `step` seconds; the front one walks to `exit` and pops away,
      a new one pops in at `spawn`. Needs (LOOP / step) to be a multiple of slots.length to loop seamlessly. */
-  queue({ slots, exit, spawn, step = 2, delay = 0.72, shirts = this.shirts }){
+  queue({ slots, exit, spawn, step = 2, delay = 0.72, shirts = this.shirts, scale = 0.9 }){
     const N = slots.length, G = this.G, people = [];
     for(let i = 0; i < N; i++){
       const p = this.person(shirts[i % shirts.length]);
@@ -199,13 +199,13 @@ export class Kit {
         q.p.position.set(x, G + Math.abs(Math.sin(lt * 13)) * 0.03 * moving, z);
         q.p.rotation.y = q.yaw;
         this.walkPose(q.p, lt, moving);
-        q.p.scale.setScalar(0.9 * (q.p.userData.pop ?? 1) * Math.max(0.0001, sc));
+        q.p.scale.setScalar(scale * (q.p.userData.pop ?? 1) * Math.max(0.0001, sc));
       }
     });
     return state;
   }
   /* pedestrian pacing back and forth along a line; side 'x' paces along x at z=off, 'z' along z at x=off */
-  walker({ side = 'x', off = 0, center = 0, amp = 3, ph = 0, shirt, delay = 0.8 }){
+  walker({ side = 'x', off = 0, center = 0, amp = 3, ph = 0, shirt, delay = 0.8, scale = 0.9 }){
     const p = this.person(shirt); this.addDynamic(p, delay);
     let yaw = 0;
     this.onTick(({ ph:P, lt, playing }) => {
@@ -214,9 +214,42 @@ export class Kit {
       else { p.position.set(off, this.G, u); if(playing) yaw = lerpAngle(yaw, v >= 0 ? -Math.PI / 2 : Math.PI / 2, 0.12); }
       p.rotation.y = yaw;
       this.walkPose(p, lt + ph, clamp(Math.abs(v) * 1.6, 0, 1));
-      p.scale.setScalar(0.9 * (p.userData.pop ?? 1));
+      p.scale.setScalar(scale * (p.userData.pop ?? 1));
     });
     return p;
+  }
+
+  /* instanced crowd: one draw call for bodies, one for heads. spots: [{x, z, ...}]; motion(spot, i, args) returns { dy, yaw } */
+  crowd(spots, { scale = 0.6, motion } = {}){
+    const C = this.C, N = spots.length;
+    const bodyGeo = this.rbGeo(0.26, 0.5, 0.24, 0.08), headGeo = new THREE.SphereGeometry(0.11, 12, 9);
+    const bodies = this.anim(new THREE.InstancedMesh(bodyGeo, new THREE.MeshStandardMaterial({ roughness:0.7 }), N));
+    const heads = this.anim(new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ roughness:0.6 }), N));
+    bodies.castShadow = heads.castShadow = true; bodies.frustumCulled = heads.frustumCulled = false; bodies.receiveShadow = heads.receiveShadow = true;
+    const col = new THREE.Color(), palette = [...this.shirts, C.orange, 0xd94f70, 0x8e6bd8, 0xffffff, 0x2a2f45];
+    spots.forEach((s, i) => {
+      bodies.setColorAt(i, col.set(this.pick(palette)));
+      heads.setColorAt(i, col.set(this.pick(C.skins)));
+      s.ph = this.rand() * TAU; s.k = 0.7 + this.rand() * 0.6;
+    });
+    const g = this.anim(new THREE.Group()); g.add(bodies, heads); this.world.add(g);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    let pop = 0;
+    const place = args => {
+      pop = Math.min(1, Math.max(0, (args.t - 0.75) / 0.5));
+      const ps = Math.max(0.0001, easeOutBack(pop)) * scale;
+      sc.set(ps, ps, ps);
+      for(let i = 0; i < N; i++){
+        const s = spots[i], m = motion ? motion(s, i, args) : { dy:0, yaw:Math.PI / 2 };
+        q.setFromAxisAngle(up, m.yaw);
+        m4.compose(v.set(s.x, this.G + 0.25 * ps + m.dy, s.z), q, sc); bodies.setMatrixAt(i, m4);
+        m4.compose(v.set(s.x, this.G + 0.6 * ps + m.dy, s.z), q, sc); heads.setMatrixAt(i, m4);
+      }
+      bodies.instanceMatrix.needsUpdate = heads.instanceMatrix.needsUpdate = true;
+    };
+    place({ t:0, lt:0, ph:0, dt:0, playing:true });
+    this.onTick(place);
+    return { bodies, heads };
   }
 
   /* ---------- exterior kit ---------- */
