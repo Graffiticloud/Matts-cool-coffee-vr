@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Matt's Cool Coffee · BAA</title>
+<meta name="description" content="Explore a café in 3D or VR and test your knowledge of experiential marketing for BAA (BUSN10060).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<noscript>This model needs JavaScript and WebGL. Open it in a recent browser.</noscript>
+<script type="module">
+import { createApp } from '../../engine/runtime.js';
+import { spec } from './spec.js';
+import { build } from './scene.js';
+createApp({ spec, build });
+</script>
+</body>
+</html>
