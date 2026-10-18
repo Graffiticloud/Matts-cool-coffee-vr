@@ -144,7 +144,8 @@ class Panel {
 /* ================================================================ the app */
 export function createApp({ spec, build }){
   document.head.append(el('style', { text:CSS }));
-  const BG = spec.background ?? 0xeeeae2;
+  const PANO = spec.type === 'pano';
+  const BG = spec.background ?? (PANO ? 0x111318 : 0xeeeae2);
   const H = spec.hotspots, Qs = spec.questions;
   const store = {
     get(k, d){ try{ const v = localStorage.getItem(spec.id + ':' + k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
@@ -193,9 +194,23 @@ export function createApp({ spec, build }){
   }
   const world = new THREE.Group(); model.add(world);
 
+  /* ---------- 360 photo mode: an inside-out sphere centred on the viewer ---------- */
+  const panoGroup = new THREE.Group(); scene.add(panoGroup);
+  const pxToDir = (px, py) => {
+    const phi = px / spec.pano.width * TAU, th = py / spec.pano.height * Math.PI;
+    return new THREE.Vector3(Math.cos(phi) * Math.sin(th), Math.cos(th), Math.sin(phi) * Math.sin(th));
+  };
+  if(PANO){
+    renderer.shadowMap.enabled = false; model.visible = false;
+    const tex = new THREE.TextureLoader().load(spec.pano.src);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(50, 96, 48).scale(-1, 1, 1), new THREE.MeshBasicMaterial({ map:tex, toneMapped:false }));
+    panoGroup.add(sphere);
+  }
+
   /* ---------- the model's own scene ---------- */
   const kit = new Kit(world, { palette:spec.palette, seed:spec.seed ?? 7, ground:spec.ground ?? 0.16 });
-  build(kit, THREE);
+  build?.(kit, THREE);
 
   /* ---------- quiz state ---------- */
   let student = store.get('student', '');
@@ -439,8 +454,9 @@ export function createApp({ spec, build }){
     const c = document.createElement('canvas'); c.width = c.height = 128;
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, depthTest:false, transparent:true, toneMapped:false }));
-    sp.renderOrder = 998; sp.scale.setScalar(spec.pinSize ?? 0.6); sp.position.set(...h.pos);
-    sp.userData = { hotspot:h.id, base:h.pos[1], i, anim:true };
+    sp.renderOrder = 998; sp.scale.setScalar(spec.pinSize ?? 0.6);
+    if(h.px) sp.position.copy(pxToDir(...h.px).multiplyScalar(spec.pano?.pinRadius ?? 8)); else sp.position.set(...h.pos);
+    sp.userData = { hotspot:h.id, base:sp.position.y, i, anim:true };
     sp.visible = false; pinRoot.add(sp);
     let last = '';
     sp.setState = () => {
@@ -458,6 +474,8 @@ export function createApp({ spec, build }){
     return sp;
   });
 
+  if(PANO){ panoGroup.add(pinRoot); pinRoot.matrixAutoUpdate = true; }
+
   /* ---------- in-headset panels ---------- */
   const hud = new Panel(1024, 600, 0.62), quizPanel = new Panel(1024, 1000, 0.78), tutorPanel = new Panel(1024, 1000, 0.72), keypad = new Panel(1024, 900, 0.6);
   for(const p of [hud, quizPanel, tutorPanel, keypad]) scene.add(p.mesh);
@@ -466,7 +484,7 @@ export function createApp({ spec, build }){
     p.bg();
     p.rr(44, 40, playing ? 140 : 186, 50, 25); p.ctx.fillStyle = playing ? 'rgba(255,106,19,0.14)' : 'rgba(43,79,216,0.14)'; p.ctx.fill();
     p.text(playing ? 'LIVE' : 'PAUSED', 70, 66, { size:24, weight:700, color:playing ? '#c94a05' : '#2b4fd8', base:'middle' });
-    p.text(`${views[viewIdx].name}${student ? '  ·  ' + student : ''}`, 980, 66, { size:24, font:'mono', color:'#4b5679', align:'right', base:'middle' });
+    p.text(`${views.length ? views[viewIdx].name : '360° photo'}${student ? '  ·  ' + student : ''}`, 980, 66, { size:24, font:'mono', color:'#4b5679', align:'right', base:'middle' });
     p.text(spec.title, 44, 160, { size:56, weight:800 });
     p.text(spec.subtitle, 44, 214, { size:36, weight:500, color:'#2b4fd8' });
     const n = answeredCount(), c = correctCount();
@@ -475,8 +493,8 @@ export function createApp({ spec, build }){
     p.text(`${n} of ${Qs.length} answered · ${c} correct${best ? ` · best ${best.pct}%` : ''}`, 44, 314, { size:28, weight:600 });
     p.button('tutor', 44, 350, 300, 76, 'Ask the tutor', { fill:'#2b4fd8', color:'#ffffff' });
     p.button('restart', 362, 350, 260, 76, 'Start again');
-    p.button('pause', 640, 350, 340, 76, playing ? 'Pause motion' : 'Resume motion');
-    p.para('Point at a numbered pin and pull the trigger · A/X: change view · B/Y: pause · Grip: move · Right stick: zoom', 44, 480, 936, { size:24, color:'#4b5679' });
+    if(!PANO) p.button('pause', 640, 350, 340, 76, playing ? 'Pause motion' : 'Resume motion');
+    p.para(PANO ? 'Look around · point at a numbered pin and pull the trigger · Left stick: turn the scene' : 'Point at a numbered pin and pull the trigger · A/X: change view · B/Y: pause · Grip: move · Right stick: zoom', 44, 480, 936, { size:24, color:'#4b5679' });
   };
   hud.onClick = id => { if(id === 'tutor') toggleTutor(); if(id === 'restart') restart(); if(id === 'pause') setPlaying(!playing); };
   quizPanel.draw = p => {
@@ -612,12 +630,24 @@ export function createApp({ spec, build }){
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.minDistance = 4; controls.maxDistance = 160; controls.maxPolarAngle = Math.PI * 0.49; controls.target.copy(target);
   let autoCam = true;
-  controls.addEventListener('start', () => { if(autoCam){ autoCam = false; ui.auto.hidden = false; } });
+  controls.addEventListener('start', () => { if(autoCam && !PANO){ autoCam = false; ui.auto.hidden = false; } });
   ui.auto.addEventListener('click', () => { autoCam = true; ui.auto.hidden = true; controls.target.copy(target); });
   const FIT = spec.fit ?? 13.5;
   function fitDistance(){
     const v = THREE.MathUtils.degToRad(camera.fov) / 2, h = Math.atan(Math.tan(v) * camera.aspect);
     return FIT / Math.tan(Math.min(v, h));
+  }
+  if(PANO){
+    camera.fov = spec.pano.fov ?? 75; camera.near = 0.1; camera.far = 200; camera.updateProjectionMatrix();
+    camera.position.copy(pxToDir(...spec.pano.start)).multiplyScalar(-0.01); controls.target.set(0, 0, 0);
+    Object.assign(controls, { enableZoom:false, enablePan:false, rotateSpeed:-0.35, minDistance:0.001, maxDistance:1, minPolarAngle:0.05, maxPolarAngle:Math.PI - 0.05,
+      autoRotate:!matchMedia('(prefers-reduced-motion: reduce)').matches, autoRotateSpeed:-0.25 });
+    controls.update();
+    controls.addEventListener('start', () => { controls.autoRotate = false; });
+    renderer.domElement.addEventListener('wheel', e => { e.preventDefault(); camera.fov = clamp(camera.fov + e.deltaY * 0.03, 30, 90); camera.updateProjectionMatrix(); }, { passive:false });
+    ui.play.hidden = true; ui.dock.firstChild.hidden = true;
+    navigator.xr?.isSessionSupported('immersive-vr').then(ok => { ui.dock.firstChild.hidden = !ok; }).catch(() => {});
+    ui.hint.textContent = 'Drag to look around · scroll to zoom · click a numbered pin to answer its questions';
   }
   addEventListener('resize', () => {
     if(renderer.xr.isPresenting) return;
@@ -655,6 +685,7 @@ export function createApp({ spec, build }){
   /* ---------- XR views, controllers, grab and zoom ---------- */
   const views = (spec.views || []).map(v => ({ ...v, anchor:new THREE.Vector3(...v.anchor), at:new THREE.Vector3(...v.at) }));
   function placeView(i){
+    if(!views.length) return;
     viewIdx = (i + views.length) % views.length;
     const v = views[viewIdx];
     model.scale.setScalar(v.s); model.rotation.set(0, v.yaw, 0);
@@ -698,6 +729,7 @@ export function createApp({ spec, build }){
   }
   function levelModel(){ const e = new THREE.Euler().setFromQuaternion(model.quaternion, 'YXZ'); model.rotation.set(0, e.y, 0); }
   function grabStart(c){
+    if(PANO) return;
     holders.add(c);
     if(holders.size === 1) c.attach(model);
     else {
@@ -738,12 +770,13 @@ export function createApp({ spec, build }){
       prevButtons.set(hand, pressed);
       if(holders.size) continue;
       const sx = gp.axes[2] || 0, sy = gp.axes[3] || 0;
-      if(hand === 'right' && Math.abs(sy) > 0.15){
+      if(hand === 'right' && Math.abs(sy) > 0.15 && !PANO){
         const s = clamp(model.scale.x * Math.exp(-sy * dt * 1.6), 0.015, 6), kk = s / model.scale.x;
         model.position.sub(c.position).multiplyScalar(kk).add(c.position); model.scale.setScalar(s); syncShadow();
       }
       if(hand === 'left' && Math.abs(sx) > 0.2){
         const ang = -sx * dt * 1.4;
+        if(PANO){ panoGroup.rotation.y += ang; continue; }
         renderer.xr.getCamera().getWorldPosition(head); head.y = 0;
         model.position.sub(head).applyAxisAngle(UP, ang).add(head); model.rotation.y += ang;
       }
@@ -762,21 +795,23 @@ export function createApp({ spec, build }){
       camera.near = 0.02; camera.far = 300; camera.updateProjectionMatrix();
       const ar = mode === 'immersive-ar';
       scene.background = ar ? null : new THREE.Color(BG);
-      floor.visible = !ar; catcher.visible = ar; catcher.position.y = spec.arCatcherY ?? -1.24;
+      floor.visible = !ar && !PANO; catcher.visible = ar && !PANO; catcher.position.y = spec.arCatcherY ?? -1.24;
+      if(PANO){ const d = pxToDir(...spec.pano.start); panoGroup.rotation.y = Math.PI - Math.atan2(d.x, d.z); }
       renderer.xr.setFoveation?.(0.6);
       placePanel(hud, -0.78, 1.48, -0.92);
       placePanel(quizPanel, 0.72, 1.32, -0.82);
       placePanel(tutorPanel, 1.12, 1.32, -0.12);
       placePanel(keypad, 0, 1.32, -0.75);
       hud.mesh.visible = true;
-      world.add(pinRoot); pinRoot.matrixAutoUpdate = true; pinRoot.matrix.identity(); pinRoot.position.set(0, 0, 0);
+      if(!PANO){ world.add(pinRoot); pinRoot.matrixAutoUpdate = true; pinRoot.matrix.identity(); pinRoot.position.set(0, 0, 0); }
       placeView(0); refresh();
       if(!student) askStudent();
       session.addEventListener('end', endXR);
     }catch(err){ ui.hint.textContent = 'Could not start ' + (mode === 'immersive-ar' ? 'mixed reality' : 'VR') + ': ' + err.message; }
   }
   function endXR(){
-    overlay.add(pinRoot); pinRoot.matrixAutoUpdate = false;
+    if(PANO){ panoGroup.position.set(0, 0, 0); panoGroup.rotation.y = 0; }
+    else { overlay.add(pinRoot); pinRoot.matrixAutoUpdate = false; }
     for(const c of [...holders]) grabEnd(c);
     scene.attach(model);
     model.scale.setScalar(1); model.position.set(0, 0, 0); model.rotation.set(0, 0, 0); syncShadow();
@@ -791,7 +826,7 @@ export function createApp({ spec, build }){
   }
   if(navigator.xr){
     navigator.xr.isSessionSupported('immersive-vr').then(ok => { ui.vr.hidden = !ok; }).catch(() => {});
-    navigator.xr.isSessionSupported('immersive-ar').then(ok => { ui.ar.hidden = !ok; }).catch(() => {});
+    if(!PANO) navigator.xr.isSessionSupported('immersive-ar').then(ok => { ui.ar.hidden = !ok; }).catch(() => {});
   }
 
   /* ---------- main loop ---------- */
@@ -813,7 +848,8 @@ export function createApp({ spec, build }){
     if(allDone && !merged) mergeStatic();
     if(t > 1.1 && !pinsShown){ pinsShown = true; pins.forEach(p => p.visible = true); }
 
-    if(!renderer.xr.isPresenting){
+    if(!renderer.xr.isPresenting && PANO) controls.update();
+    else if(!renderer.xr.isPresenting){
       if(autoCam){
         const az = (spec.camAz ?? Math.PI / 4) + 0.3 * Math.sin(ph), push = 0.5 - 0.5 * Math.cos(ph);
         const R = fitDistance() * (1 - 0.08 * push), el = spec.camEl ?? 0.57;
@@ -821,7 +857,11 @@ export function createApp({ spec, build }){
         camera.lookAt(target);
       } else controls.update();
       world.position.y = 0.12 * Math.sin(ph);
-    } else { world.position.y = 0; pollXR(dt); }
+    } else {
+      world.position.y = 0;
+      if(PANO){ renderer.xr.getCamera().getWorldPosition(head); panoGroup.position.copy(head); }
+      pollXR(dt);
+    }
 
     tickArgs.t = t; tickArgs.lt = lt; tickArgs.ph = ph; tickArgs.dt = dt; tickArgs.playing = playing;
     for(const f of kit.ticks) f(tickArgs);
@@ -836,6 +876,8 @@ export function createApp({ spec, build }){
 
     if(renderer.xr.isPresenting){
       for(const p of panels) if(p.mesh.visible && p.dirty) p.redraw();
+      renderer.render(scene, camera);
+    } else if(PANO){
       renderer.render(scene, camera);
     } else {
       composer.render();

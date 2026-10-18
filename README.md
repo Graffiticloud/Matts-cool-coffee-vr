@@ -6,6 +6,7 @@ Interactive 3D teaching models that run in any browser and in VR or mixed realit
 |---|---|
 | Matt's Cool Coffee (original animation) | https://graffiticloud.github.io/Matts-cool-coffee-vr/ |
 | Matt's Cool Coffee, inside: BAA experiential-marketing quiz | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/baa-cafe/ |
+| La Sagrada Família 360: BAA heritage, tourism and commerce quiz | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/sagrada-360/ |
 
 ## How it fits together
 
@@ -29,6 +30,13 @@ ops/
 2. Rewrite `scene.js` with the kit (keep the loop at 10 seconds, blocks rounded, no textures).
 3. Rewrite `spec.js`: give it a new `id`, its hotspots (each with a position above its object) and questions (4 options, one correct, an explanation and a Harvard reference).
 4. Commit and push. GitHub Pages publishes it at `/models/<new-id>/` within a couple of minutes.
+
+## Making a 360° photo model
+
+1. Create `models/<new-id>/` with the photo as `pano.jpg` (equirectangular, 2:1). Use the camera's full-resolution export; 5.7K or larger looks sharp in the headset.
+2. Copy `models/sagrada-360/index.html` and `spec.js`. Set `type:'pano'` and `pano:{ src, width, height, start:[x, y], fov, pinRadius }`.
+3. Give each hotspot `px:[x, y]`: the pixel position on the photo where its pin should sit.
+4. No `scene.js` is needed. Blur the faces of bystanders before publishing.
 
 ## One-time setup: AI tutor
 
