@@ -8,6 +8,25 @@ export function build(kit){
   const GRASS = 0xb7cf9f, GRASS_DARK = 0x9dbb84, TRACK = 0xe6e1d6, HIVIS = 0xf2e51b, STEEL = 0xbfc6cf, WOOD = 0x9a7b56, CANVAS = 0xf4f1ea;
   const P = 0.6; // person scale
 
+  /* ---------- scenario state: the crowd-surge branching scenario drives these (see effect() at the end) ---------- */
+  const FX = {
+    reset:   { surge:0,    lights:1, screen:0, stewards:0, push:0, medics:0 },
+    calm:    { surge:0,    lights:1, screen:0, stewards:0, push:0, medics:0 },
+    surge:   { surge:1,    lights:1, screen:0, stewards:0, push:0, medics:0 },
+    stop:    { surge:0.75, lights:0, screen:1, stewards:0, push:0, medics:0 },
+    message: { surge:0.35, lights:0, screen:2, stewards:1, push:0, medics:0 },
+    stepback:{ surge:0,    lights:0, screen:1, stewards:1, push:0, medics:0 },
+    stewards:{ surge:0.2,  lights:0, screen:1, stewards:1, push:0, medics:0 },
+    push:    { surge:1,    lights:0, screen:1, stewards:1, push:1, medics:0 },
+    blackout:{ surge:1,    lights:0, screen:3, stewards:0, push:0, medics:0 },
+    crush:   { surge:1.35, lights:0, screen:3, stewards:1, push:0, medics:1 },
+    cancel:  { surge:0.5,  lights:0, screen:1, stewards:1, push:0, medics:0 },
+    restart: { surge:0.05, lights:1, screen:0, stewards:1, push:0, medics:0 },
+    resurge: { surge:0.9,  lights:1, screen:0, stewards:1, push:0, medics:0 }
+  };
+  const fx = { ...FX.reset }, fxTarget = { ...FX.reset };
+  kit.onTick(({ dt }) => { const k = 1 - Math.exp(-dt * 1.6); for(const key in fx) fx[key] += (fxTarget[key] - fx[key]) * k; });
+
   /* ---------- the field ---------- */
   {
     const g = new THREE.Group();
@@ -108,11 +127,46 @@ export function build(kit){
     if(spots.some(s => (s.x - x) ** 2 + (s.z - z) ** 2 < 0.06)) continue;
     spots.push({ x, z, front:zFront < 3 });
   }
-  kit.crowd(spots, { scale:P, motion:(s, i, { lt }) => {
+  /* surge zone: left of centre at the barrier, where density builds first */
+  const SURGE = { x:-1.2, z:-2.4, r:3.8 };
+  spots.forEach(s => { s.w = clamp(1 - Math.hypot(s.x - SURGE.x, (s.z - SURGE.z) * 0.8) / SURGE.r, 0, 1); });
+  kit.crowd(spots, { scale:P, motion:(s, i, { lt, t }) => {
     const beat = Math.abs(Math.sin(lt * TAU * 2 + s.ph));          // two beats a second, loops every 10 s
-    const dy = s.front ? beat * 0.09 * s.k : beat * 0.025;
-    return { dy, yaw:Math.PI / 2 + 0.25 * Math.sin(lt * TAU * 0.1 + s.ph) };
+    const calm = clamp(1 - fx.surge, 0, 1);
+    let dy = (s.front ? beat * 0.09 * s.k : beat * 0.025) * (fx.lights > 0.5 ? 1 : 0.35);
+    let dx = 0, dz = 0;
+    if(s.w > 0 && fx.surge > 0.01){
+      const w = s.w * fx.surge;
+      dz = -w * (s.z + 3.3) * 0.42;                                  // compressed towards the barrier
+      dx = w * (0.22 * Math.sin(t * 1.7 + s.x * 0.8) + (SURGE.x - s.x) * 0.12); // crowd sway and pull to the centre
+      dy *= calm; dy += w * 0.03 * Math.abs(Math.sin(t * 5 + s.ph));
+    }
+    if(fx.push > 0.01 && s.w > 0.3) dz += fx.push * 0.25 * s.w;      // stewards pushing in: people shoved back into the press
+    return { dx, dy, dz, yaw:Math.PI / 2 + 0.25 * Math.sin(lt * TAU * 0.1 + s.ph) * calm };
   } });
+
+  /* density warning patch on the ground, extra stewards, medics */
+  const patch = kit.anim(new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshBasicMaterial({ color:0xd11f1f, transparent:true, opacity:0, depthWrite:false })));
+  patch.rotation.x = -Math.PI / 2; patch.position.set(SURGE.x, G + 0.03, SURGE.z); patch.renderOrder = 2; kit.world.add(patch);
+  const extra = [];
+  [[-6.1, -4.2, -Math.PI / 2], [6.1, -4.2, Math.PI / 2], [-2.2, -4.1, -Math.PI / 2], [-0.4, -4.1, -Math.PI / 2], [-3.0, -3.0, Math.PI], [0.6, -3.0, Math.PI]].forEach(([x, z, ry], i) => {
+    const p = kit.person(HIVIS); p.position.set(x, G, z); p.rotation.y = ry; kit.addDynamic(p, 0.9); extra.push({ p, x, z, i, kind:'steward' });
+  });
+  [[-1.6, -4.0], [-0.9, -4.3], [-1.9, -4.5]].forEach(([x, z], i) => {
+    const p = kit.person(0x2f8a45); p.position.set(x, G, z); p.rotation.y = Math.PI; kit.addDynamic(p, 0.9); extra.push({ p, x, z, i, kind:'medic' });
+  });
+  kit.onTick(({ t }) => {
+    const sv = clamp(fx.surge, 0, 1.4);
+    patch.material.opacity = sv * (0.22 + 0.16 * Math.abs(Math.sin(t * 3)));
+    patch.scale.setScalar(1.6 + sv * 1.6);
+    extra.forEach(e => {
+      const v = e.kind === 'medic' ? fx.medics : fx.stewards;
+      e.p.scale.setScalar(P * Math.max(0.0001, v) * (e.p.userData.pop ?? 1));
+      e.p.visible = v > 0.02;
+      if(e.kind === 'steward' && e.z > -3.3) e.p.position.z = e.z + fx.push * 0.6;  // the two in the crowd only when pushing
+      if(e.kind === 'steward' && e.z > -3.3) e.p.visible = fx.push > 0.05;
+    });
+  });
 
   /* flags held up in the crowd (plain colours, no text) */
   const flags = [];
@@ -328,20 +382,33 @@ export function build(kit){
   for(const [x, z, s] of [[-13.2, -9.5, 1.4], [13.2, -9.2, 1.5], [-13.4, -6.0, 1.2], [13.4, 2.0, 1.1], [-13.5, 11.2, 1.0], [13.3, 11.3, 1.2], [6.5, 11.6, 0.9]]) kit.tree(x, z, s);
 
   /* ---------- show lighting, screens and flags ---------- */
-  const tmpCol = new THREE.Color();
-  kit.onTick(({ lt, ph }) => {
+  /* screen modes: 0 show content, 1 steady amber (show stopped), 2 flashing white (scripted message), 3 dark/red (no information) */
+  const tmpCol = new THREE.Color(), AMBER = new THREE.Color(0xffb020), WHITE = new THREE.Color(0xffffff), RED = new THREE.Color(0x8a1010);
+  kit.onTick(({ lt, ph, t }) => {
+    const on = clamp(fx.lights, 0, 1);
     lights.forEach(l => {
       const hue = ((lt / 5) + l.i / 7) % 1;
       tmpCol.setHSL(hue, 0.85, 0.6);
-      l.lens.material.emissive.copy(tmpCol); l.beam.material.color.copy(tmpCol);
-      l.head.rotation.x = 0.55 + 0.35 * Math.sin(ph * 2 + l.i);
-      l.head.rotation.z = 0.4 * Math.sin(ph * 3 + l.i * 0.7);
+      l.lens.material.emissive.copy(tmpCol); l.lens.material.emissiveIntensity = 2 * on;
+      l.beam.material.color.copy(tmpCol); l.beam.material.opacity = 0.12 * on; l.beam.visible = on > 0.03;
+      l.head.rotation.x = 0.55 + 0.35 * Math.sin(ph * 2 + l.i) * on;
+      l.head.rotation.z = 0.4 * Math.sin(ph * 3 + l.i * 0.7) * on;
     });
+    const mode = Math.round(fxTarget.screen);
     screens.forEach((s, i) => {
-      tmpCol.setHSL(((lt / 10) + i * 0.15) % 1, 0.7, 0.5);
+      if(mode === 0){ tmpCol.setHSL(((lt / 10) + i * 0.15) % 1, 0.7, 0.5); s.material.emissiveIntensity = 0.8 + 0.3 * Math.abs(Math.sin(lt * TAU * 2 + i)); }
+      else if(mode === 1){ tmpCol.copy(AMBER); s.material.emissiveIntensity = 1.1; }
+      else if(mode === 2){ tmpCol.copy(Math.sin(t * 5) > 0 ? WHITE : AMBER); s.material.emissiveIntensity = 1.4; }
+      else { tmpCol.copy(RED); s.material.emissiveIntensity = 0.35 + 0.2 * Math.abs(Math.sin(t * 2)); }
       s.material.emissive.copy(tmpCol);
-      s.material.emissiveIntensity = 0.8 + 0.3 * Math.abs(Math.sin(lt * TAU * 2 + i));
     });
     flags.forEach(f => { f.cloth.rotation.y = 0.5 * Math.sin(ph * 4 + f.i); });
   });
+
+  return {
+    effect(name){
+      const target = FX[name] || FX.calm;
+      Object.assign(fxTarget, target);
+    }
+  };
 }

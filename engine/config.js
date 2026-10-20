@@ -1,6 +1,8 @@
-/* Shared endpoints for every model. Paste the two URLs here after deploying ops/tutor-worker and ops/scores.
-   Leave a value empty to switch that feature off (the quiz still works; nothing is sent). */
+/* Shared endpoints for every model. Leave a value empty to switch that feature off (the quiz still works; nothing is sent).
+   tutorUrl and researchUrl are the Cloudflare Worker (ops/tutor-worker); scoresUrl is the Apps Script web app (ops/scores).
+   Research capture also needs ?study=CODE on the page address and the participant's consent. */
 export const CONFIG = {
-  tutorUrl: '',   // e.g. https://baa-tutor.<your-subdomain>.workers.dev
-  scoresUrl: ''   // e.g. https://script.google.com/macros/s/XXXXXXXX/exec
+  tutorUrl: 'https://xr-diorama.matthew-frew.workers.dev/tutor',
+  researchUrl: 'https://xr-diorama.matthew-frew.workers.dev',
+  scoresUrl: ''   // paste the Apps Script web app address here: https://script.google.com/macros/s/XXXXXXXX/exec
 };

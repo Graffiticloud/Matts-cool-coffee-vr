@@ -11,6 +11,7 @@ import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Kit, TAU, LOOP, clamp, easeOutBack, easeOutCubic } from './kit.js';
 import { CONFIG } from './config.js';
+import { createResearch } from './research.js';
 
 const SID_RE = /^[A-Za-z]?\d{6,9}$/;
 
@@ -81,7 +82,25 @@ input[type=text]{font:500 17px/1 var(--mono);padding:13px 14px;border-radius:14p
 .tutor form{display:flex;gap:8px;padding:12px 14px 14px;border-top:1px solid var(--line)}
 .tutor form input{font-family:var(--display);letter-spacing:0;font-size:15px}
 .disclaim{padding:0 18px 12px;font:500 11.5px/1.4 var(--display);color:var(--ink-soft)}
-@media (max-width:640px){.scrim{place-items:end center}.card{border-radius:24px 24px 18px 18px}.hud{padding:14px 16px}.hud .module{display:none}}
+.scrim.side{place-items:center end;background:transparent;pointer-events:none}
+.scrim.side .card{pointer-events:auto;width:min(440px,100%);max-height:calc(100vh - 32px)}
+.vid{width:100%;max-height:60vh;border-radius:16px;background:#000;display:block}
+.choice-fb{border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:7px;background:#f3f0e9}
+.choice-fb.ok{background:#ecf7ef}.choice-fb.bad{background:#fdf0e8}
+.choice-fb strong{font:700 15px/1.2 var(--display)}.choice-fb.ok strong{color:var(--ok)}.choice-fb.bad strong{color:var(--bad)}
+.path{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.path li{font:500 14px/1.4 var(--display);padding:9px 12px;border-radius:12px;background:#f3f0e9}
+.path li.ok{background:#ecf7ef}.path li.bad{background:#fdf0e8}
+.presenter{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));width:min(300px,38vw);z-index:3;display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
+.presenter canvas{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 30px rgba(20,32,74,.35))}
+.presenter .btns{pointer-events:auto}
+.presenter .btns button{font-size:13px;padding:8px 12px}
+.rec{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 9px;border-radius:999px;background:rgba(194,65,12,.12);color:var(--bad);font:700 12px/1 var(--display);letter-spacing:.13em;text-transform:uppercase;border:0;cursor:pointer}
+.rec i{width:9px;height:9px;border-radius:50%;background:#d11;animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+.check{display:flex;gap:10px;align-items:flex-start;font:500 15px/1.45 var(--display);color:var(--ink)}
+.check input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--royal)}
+@media (max-width:640px){.scrim.side{place-items:end center}.presenter{width:42vw}.card{border-radius:24px 24px 18px 18px}.hud{padding:14px 16px}.hud .module{display:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 `;
 
@@ -152,6 +171,8 @@ export function createApp({ spec, build }){
     set(k, v){ try{ localStorage.setItem(spec.id + ':' + k, JSON.stringify(v)); }catch{} }
   };
 
+  const research = createResearch({ spec, config:CONFIG });
+
   /* ---------- renderer / scene ---------- */
   const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, powerPreference:'high-performance' });
   const DPR = Math.min(devicePixelRatio || 1, 1.5);
@@ -200,17 +221,31 @@ export function createApp({ spec, build }){
     const phi = px / spec.pano.width * TAU, th = py / spec.pano.height * Math.PI;
     return new THREE.Vector3(Math.cos(phi) * Math.sin(th), Math.cos(th), Math.sin(phi) * Math.sin(th));
   };
+  /* spec.pano.video: an equirectangular MP4 (usually on the Cloudflare R2 media bucket); spec.pano.src is its poster */
+  let panoVideo = null;
   if(PANO){
     renderer.shadowMap.enabled = false; model.visible = false;
-    const tex = new THREE.TextureLoader().load(spec.pano.src);
-    tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    const sphere = new THREE.Mesh(new THREE.SphereGeometry(50, 96, 48).scale(-1, 1, 1), new THREE.MeshBasicMaterial({ map:tex, toneMapped:false }));
+    const mat = new THREE.MeshBasicMaterial({ toneMapped:false });
+    if(spec.pano.src){
+      const tex = new THREE.TextureLoader().load(spec.pano.src);
+      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); mat.map = tex;
+    }
+    if(spec.pano.video){
+      const v = panoVideo = document.createElement('video');
+      Object.assign(v, { crossOrigin:'anonymous', loop:spec.pano.loop ?? true, muted:true, playsInline:true, preload:'auto' });
+      v.setAttribute('playsinline', ''); v.src = spec.pano.video;
+      const vtex = new THREE.VideoTexture(v); vtex.colorSpace = THREE.SRGBColorSpace;
+      v.addEventListener('playing', () => { mat.map = vtex; mat.needsUpdate = true; }, { once:true });
+      v.addEventListener('error', () => { panoVideo = null; ui.vplay && (ui.vplay.hidden = ui.vsound.hidden = true); });
+    }
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(50, 96, 48).scale(-1, 1, 1), mat);
     panoGroup.add(sphere);
   }
 
   /* ---------- the model's own scene ---------- */
   const kit = new Kit(world, { palette:spec.palette, seed:spec.seed ?? 7, ground:spec.ground ?? 0.16 });
-  build?.(kit, THREE);
+  const sceneApi = build?.(kit, THREE) || {};
+  const effect = name => { try{ sceneApi.effect?.(name); }catch(e){ console.warn('effect', name, e); } };
 
   /* ---------- quiz state ---------- */
   let student = store.get('student', '');
@@ -225,7 +260,16 @@ export function createApp({ spec, build }){
   const hById = id => H.find(h => h.id === id);
   const answeredCount = () => Object.keys(attempt.answers).length;
   const correctCount = () => Object.values(attempt.answers).filter(a => a.correct).length;
-  const hotspotDone = h => Qs.filter(q => q.hotspot === h).every(q => attempt.answers[q.id]);
+  const SC = spec.scenarios || [];
+  let watched = store.get('watched', {}), scenDone = store.get('scenarios', {});
+  const qsFor = hid => Qs.filter(q => q.hotspot === hid);
+  const hotspotDone = hid => {
+    const h = hById(hid);
+    if(h?.scenario) return !!scenDone[h.scenario];
+    const qs = qsFor(hid);
+    return qs.length ? qs.every(q => attempt.answers[q.id]) : !!watched[hid];
+  };
+  const hotspotStarted = hid => qsFor(hid).some(q => attempt.answers[q.id]) || !!watched[hid];
   const complete = () => answeredCount() === Qs.length;
 
   function post(payload){
@@ -234,18 +278,32 @@ export function createApp({ spec, build }){
     try{ fetch(CONFIG.scoresUrl, { method:'POST', mode:'no-cors', keepalive:true, headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body }); }
     catch{ try{ navigator.sendBeacon?.(CONFIG.scoresUrl, new Blob([body], { type:'text/plain' })); }catch{} }
   }
-  function openHotspot(hid){
-    if(!student){ askStudent(() => openHotspot(hid)); return; }
+  let openedAt = 0, openHid = null, shownAt = 0;
+  function noteOpen(hid){
+    if(openHid && openHid !== hid) research.log('hotspot_close', { hotspot:openHid, dwell:Math.round(performance.now() - openedAt) });
+    if(hid && hid !== openHid){ openedAt = performance.now(); research.log('hotspot_open', { hotspot:hid }); }
+    openHid = hid;
+  }
+  function openHotspot(hid, { skipVideo = false } = {}){
+    if(gateActive()){ afterGates(() => openHotspot(hid)); return; }
+    const h = hById(hid); if(!h) return;
+    noteOpen(hid);
+    if(h.scenario){ openScenario(h.scenario); return; }
+    if(h.video && !skipVideo && (!watched[hid] || !qsFor(hid).some(q => !attempt.answers[q.id]))){ openVideo(hid); return; }
+    const qs = qsFor(hid);
+    if(!qs.length){ open = null; noteOpen(null); refresh(); return; }
     if(complete()){ open = { done:true }; refresh(); return; }
-    const qs = Qs.filter(q => q.hotspot === hid);
     const next = qs.find(q => !attempt.answers[q.id]) || qs[qs.length - 1];
-    open = { qid:next.id }; refresh();
+    open = { qid:next.id }; shownAt = performance.now();
+    research.log('question_shown', { question:next.id, hotspot:hid });
+    refresh();
   }
   function answer(displayIdx){
     const q = qById(open?.qid); if(!q || attempt.answers[q.id]) return;
     const orig = attempt.order[q.id][displayIdx], correct = orig === q.answer;
     attempt.answers[q.id] = { chosen:orig, correct };
     saveAttempt();
+    research.log('answer', { question:q.id, hotspot:q.hotspot, chosen:orig, position:displayIdx, correct, rt:Math.round(performance.now() - shownAt), attempt:attempt.n });
     post({ type:'answer', attempt:attempt.n, hotspot:q.hotspot, question:q.id, chosen:q.options[orig], correct, answered:answeredCount(), score:correctCount(), total:Qs.length });
     if(complete()){
       const score = correctCount(), pct = Math.round(score / Qs.length * 100);
@@ -258,11 +316,86 @@ export function createApp({ spec, build }){
     const q = qById(open?.qid); if(!q){ closeQuiz(); return; }
     if(complete()){ open = { done:true }; refresh(); return; }
     const nq = Qs.find(x => x.hotspot === q.hotspot && !attempt.answers[x.id]);
-    if(nq){ open = { qid:nq.id }; refresh(); return; }
+    if(nq){ open = { qid:nq.id }; shownAt = performance.now(); research.log('question_shown', { question:nq.id, hotspot:nq.hotspot }); refresh(); return; }
     closeQuiz();
   }
-  function closeQuiz(){ open = null; refresh(); }
-  function restart(){ attempt = newAttempt(attempt.n + 1); saveAttempt(); open = null; refresh(); }
+  function closeQuiz(){ open = null; noteOpen(null); refresh(); }
+  function restart(){
+    attempt = newAttempt(attempt.n + 1); saveAttempt(); open = null;
+    watched = {}; store.set('watched', watched); scenDone = {}; store.set('scenarios', scenDone);
+    research.log('restart', { attempt:attempt.n }); refresh();
+  }
+
+  /* ---------- video pins: an MP4 that opens first, then the pin's questions ---------- */
+  let video = null; // { hid }
+  const vidEl = document.createElement('video');
+  Object.assign(vidEl, { crossOrigin:'anonymous', playsInline:true, preload:'metadata', controls:true });
+  vidEl.setAttribute('playsinline', ''); vidEl.className = 'vid';
+  const vidTex = new THREE.VideoTexture(vidEl); vidTex.colorSpace = THREE.SRGBColorSpace;
+  const vidPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.28, 0.72), new THREE.MeshBasicMaterial({ map:vidTex, toneMapped:false, depthTest:false }));
+  vidPlane.renderOrder = 997; vidPlane.visible = false; scene.add(vidPlane);
+  function openVideo(hid){
+    const h = hById(hid); video = { hid }; open = null;
+    if(vidEl.dataset.src !== h.video.src){ vidEl.src = h.video.src; vidEl.dataset.src = h.video.src; if(h.video.poster) vidEl.poster = h.video.poster; }
+    vidEl.currentTime = 0; vidEl.muted = false;
+    research.log('video_open', { hotspot:hid, src:h.video.src });
+    refresh();
+    vidEl.play().catch(() => {});
+  }
+  function finishVideo(how){
+    if(!video) return;
+    const hid = video.hid;
+    research.log('video_close', { hotspot:hid, how, watched:Math.round(vidEl.currentTime), duration:Math.round(vidEl.duration || 0) });
+    vidEl.pause(); video = null;
+    watched[hid] = true; store.set('watched', watched);
+    if(how === 'close'){ noteOpen(null); refresh(); return; }
+    openHotspot(hid, { skipVideo:true });
+  }
+  vidEl.addEventListener('ended', () => finishVideo('ended'));
+  vidEl.addEventListener('play', () => { research.log('video_play', { hotspot:video?.hid, at:Math.round(vidEl.currentTime) }); vidPanel.dirty = true; });
+  vidEl.addEventListener('pause', () => { if(video) research.log('video_pause', { hotspot:video.hid, at:Math.round(vidEl.currentTime) }); vidPanel.dirty = true; });
+
+  /* ---------- branching scenarios: decisions change the scene ---------- */
+  let scen = null; // { s, stepId, chosen, startedAt, path:[], stepNo }
+  const scById = id => SC.find(x => x.id === id);
+  function openScenario(id){
+    const s = scById(id); if(!s) return;
+    open = null; video = null;
+    scen = { s, stepId:s.start, chosen:null, startedAt:performance.now(), path:[], stepNo:1 };
+    research.log('scenario_start', { scenario:id });
+    enterStep();
+  }
+  function enterStep(){
+    const st = scen.s.steps[scen.stepId];
+    scen.chosen = null; scen.startedAt = performance.now();
+    effect(st.effect || 'calm');
+    research.log('scenario_step', { scenario:scen.s.id, step:scen.stepId, end:!!st.end });
+    if(st.end){
+      scenDone[scen.s.id] = true; store.set('scenarios', scenDone);
+      const best = scen.path.filter(p => p.best).length;
+      post({ type:'decision', scenario:scen.s.id, step:scen.stepId, choice:'END: ' + (st.outcome || ''), best:st.outcome === 'good', seconds:0, path:scen.path.map(p => p.step + '>' + p.choice).join(' | ') + ` (${best}/${scen.path.length} best)` });
+    }
+    refresh();
+  }
+  function choose(i){
+    if(!scen || scen.chosen != null) return;
+    const st = scen.s.steps[scen.stepId], c = st.choices[i], secs = Math.round((performance.now() - scen.startedAt) / 100) / 10;
+    scen.chosen = i;
+    scen.path.push({ step:scen.stepId, title:st.title, choice:c.label, best:!!c.best, feedback:c.feedback });
+    if(c.effect) effect(c.effect);
+    research.log('decision', { scenario:scen.s.id, step:scen.stepId, choice:i, label:c.label, best:!!c.best, rt:Math.round(secs * 1000) });
+    post({ type:'decision', scenario:scen.s.id, step:scen.stepId, choice:c.label, best:!!c.best, seconds:secs, path:scen.path.map(p => p.step).join('>') });
+    refresh();
+  }
+  function continueScenario(){
+    const st = scen.s.steps[scen.stepId], c = st.choices[scen.chosen];
+    scen.stepId = c.next; scen.stepNo++; enterStep();
+  }
+  function closeScenario(){
+    if(!scen) return;
+    research.log('scenario_close', { scenario:scen.s.id, step:scen.stepId });
+    scen = null; effect('reset'); noteOpen(null); refresh();
+  }
 
   /* ---------- tutor ---------- */
   const tutor = { msgs:[], busy:false, open:false, page:0 };
@@ -301,8 +434,9 @@ export function createApp({ spec, build }){
   }
   async function askTutor(text){
     text = String(text || '').trim(); if(!text || tutor.busy) return;
-    if(!student){ askStudent(() => askTutor(text)); return; }
+    if(gateActive()){ afterGates(() => askTutor(text)); return; }
     tutor.msgs.push({ role:'user', content:text }); tutor.busy = true; tutor.page = 0; refresh();
+    research.log('tutor_ask', { text, question:open?.qid || lastQid || null });
     if(!CONFIG.tutorUrl){
       tutor.msgs.push({ role:'note', content:'The tutor is not switched on yet. Your lecturer needs to add its address to the configuration.' });
       tutor.busy = false; refresh(); return;
@@ -314,6 +448,7 @@ export function createApp({ spec, build }){
       const data = await res.json().catch(() => ({}));
       if(!res.ok) throw new Error(data.error || `The tutor replied with an error (${res.status}).`);
       tutor.msgs.push({ role:'assistant', content:data.answer || 'No answer came back. Try asking again.' });
+      research.log('tutor_answer', { text:data.answer || '' });
     }catch(err){
       tutor.msgs.push({ role:'note', content:(err.message || 'Could not reach the tutor.') + ' Check your connection and try again.' });
     }
@@ -364,7 +499,55 @@ export function createApp({ spec, build }){
     ui.msgs, ui.sugg,
     el('div', { class:'disclaim', text:'Answers are AI-generated. Check them against your module reading. Your student number is not sent to the AI.' }),
     el('form', { onsubmit:e => { e.preventDefault(); const v = ui.tInput.value; ui.tInput.value = ''; askTutor(v); } }, ui.tInput, ui.tSend));
-  document.body.append(ui.hud, ui.dock, ui.quiz, ui.gate, ui.tutor);
+  /* research consent */
+  ui.consent = el('div', { class:'scrim', hidden:true });
+  ui.cTake = el('input', { type:'checkbox', id:'c-take' }); ui.cAudio = el('input', { type:'checkbox', id:'c-audio' });
+  ui.consent.append(el('form', { class:'card', onsubmit:e => { e.preventDefault(); decideConsent(ui.cTake.checked, ui.cTake.checked && ui.cAudio.checked); } },
+    el('div', { class:'eyebrow', text:`Research study · ${research.study}` }),
+    el('h2', { text:'Would you like to take part?' }),
+    el('p', { text:spec.research?.consent || 'This session is part of a research study. If you agree, the model records what you do in it: which points you open and for how long, your answers and decisions with their timings, the views you use and your questions to the tutor. Records carry a coded ID made from your student number, never your name. Taking part is voluntary, has no effect on your marks, and you can stop at any time. Your lecturer has the participant information sheet.' }),
+    el('label', { class:'check', for:'c-take' }, ui.cTake, el('span', { text:'I have read the participant information and agree to take part.' })),
+    el('label', { class:'check', for:'c-audio' }, ui.cAudio, el('span', { text:'I also agree to audio of our discussion being recorded and transcribed. (Optional. You can stop it at any time with the red Recording button.)' })),
+    el('div', { class:'actions' }, el('button', { type:'button', text:'No thanks', onclick:() => decideConsent(false, false) }), el('button', { type:'submit', class:'primary', text:'Continue' }))));
+  ui.rec = el('button', { type:'button', class:'rec', hidden:true, title:'Stop audio recording', onclick:() => research.stopAudio() }, el('i'), el('span', { text:'Recording · stop' }));
+  ui.hud.firstChild.append(ui.rec);
+  /* video pin */
+  ui.video = el('div', { class:'scrim', hidden:true });
+  ui.vTitle = el('h2', { id:'vtitle' }); ui.vEyebrow = el('div', { class:'eyebrow' }); ui.vNote = el('p');
+  ui.vNext = el('button', { type:'button', class:'primary', text:'Skip to questions', onclick:() => finishVideo('skip') });
+  ui.video.append(el('div', { class:'card', role:'dialog', 'aria-modal':'true', 'aria-labelledby':'vtitle', style:'width:min(820px,100%)' },
+    ui.vEyebrow, ui.vTitle, vidEl, ui.vNote,
+    el('div', { class:'actions' }, el('button', { type:'button', text:'Close', onclick:() => finishVideo('close') }), ui.vNext)));
+  /* scenario (side card so the scene stays visible) */
+  ui.scen = el('div', { class:'scrim side', hidden:true });
+  ui.scenCard = el('div', { class:'card', role:'dialog', 'aria-labelledby':'stitle' });
+  ui.scen.append(ui.scenCard);
+  /* 360 video controls */
+  ui.vplay = el('button', { type:'button', text:'Play video', hidden:!panoVideo, onclick:() => togglePanoVideo() });
+  ui.vsound = el('button', { type:'button', text:'Sound on', hidden:!panoVideo, onclick:() => togglePanoSound() });
+  ui.dock.firstChild.prepend(ui.vplay, ui.vsound);
+  document.body.append(ui.hud, ui.dock, ui.quiz, ui.gate, ui.tutor, ui.consent, ui.video, ui.scen);
+
+  /* ---------- consent (research studies only), then student number ---------- */
+  let consentDecided = !research.requested, afterConsent = null;
+  const gateActive = () => !consentDecided || !student;
+  function afterGates(fn){
+    if(!consentDecided){ showConsent(() => afterGates(fn)); return; }
+    if(!student){ askStudent(fn); return; }
+    fn?.();
+  }
+  function showConsent(then){
+    afterConsent = then || null;
+    if(renderer.xr.isPresenting){ consentPanel.mesh.visible = true; consentPanel.dirty = true; return; }
+    ui.consent.hidden = false;
+  }
+  function decideConsent(take, audio){
+    consentDecided = true; ui.consent.hidden = true; consentPanel.mesh.visible = false;
+    if(take){ research.start({ audio }); if(student) research.setParticipant(student); }
+    refresh();
+    const f = afterConsent; afterConsent = null; f?.();
+  }
+  research.onAudio = on => { ui.rec.hidden = !on; hud.dirty = true; };
 
   let afterStudent = null;
   function askStudent(then){
@@ -375,7 +558,7 @@ export function createApp({ spec, build }){
   function submitStudent(v){
     v = String(v || '').trim().toUpperCase();
     if(!SID_RE.test(v)){ ui.sidErr.textContent = 'Use your student number, for example B00123456.'; keypad.error = true; keypad.dirty = true; return false; }
-    student = v; store.set('student', v); hashSid();
+    student = v; store.set('student', v); hashSid(); research.setParticipant(v);
     ui.gate.hidden = true; keypad.mesh.visible = false; keypad.error = false;
     refresh();
     const f = afterStudent; afterStudent = null; f?.();
@@ -383,12 +566,13 @@ export function createApp({ spec, build }){
   }
   function toggleTutor(v){
     tutor.open = v ?? !tutor.open;
+    research.log(tutor.open ? 'tutor_open' : 'tutor_close');
     if(tutor.open && !tutor.msgs.length) tutor.msgs.push({ role:'assistant', content:spec.tutor.greeting });
     refresh();
     if(tutor.open && !renderer.xr.isPresenting) setTimeout(() => ui.tInput.focus(), 30);
   }
   addEventListener('keydown', e => {
-    if(e.key === 'Escape'){ if(!ui.quiz.hidden) closeQuiz(); else if(!ui.tutor.hidden) toggleTutor(false); }
+    if(e.key === 'Escape'){ if(!ui.video.hidden) finishVideo('close'); else if(!ui.quiz.hidden) closeQuiz(); else if(!ui.scen.hidden) closeScenario(); else if(!ui.tutor.hidden) toggleTutor(false); }
     if(e.code === 'Space' && e.target === document.body){ e.preventDefault(); setPlaying(!playing); }
   });
 
@@ -430,6 +614,39 @@ export function createApp({ spec, build }){
     ui.tSend.disabled = tutor.busy;
   }
 
+  function renderVideoDom(){
+    const h = hById(video.hid), more = qsFor(video.hid).some(q => !attempt.answers[q.id]);
+    ui.vEyebrow.textContent = `${h.n} · ${h.title}`;
+    ui.vTitle.textContent = h.video.title || 'Watch this first';
+    ui.vNote.textContent = h.video.note || (more ? 'The questions for this point open when the clip ends.' : '');
+    ui.vNote.hidden = !ui.vNote.textContent;
+    ui.vNext.textContent = more ? 'Skip to questions' : 'Done';
+  }
+  function renderScenarioDom(){
+    const card = ui.scenCard, st = scen.s.steps[scen.stepId]; card.replaceChildren();
+    if(st.end){
+      const best = scen.path.filter(p => p.best).length;
+      card.append(el('div', { class:'eyebrow', text:`${scen.s.title} · outcome` }), el('h2', { id:'stitle', text:st.title }), el('p', { text:st.text }));
+      card.append(el('ol', { class:'path' }, ...scen.path.map(p => el('li', { class:p.best ? 'ok' : 'bad', text:`${p.title}: ${p.choice}` }))));
+      card.append(el('p', { text:`${best} of ${scen.path.length} decisions matched good practice.${st.ref ? ' ' + st.ref : ''}` }));
+      card.append(el('div', { class:'actions' }, el('button', { type:'button', text:'Ask the tutor', onclick:() => { toggleTutor(true); askTutor(`Talk me through the ${scen.s.title} scenario and what I should have done differently.`); } }),
+        el('button', { type:'button', text:'Run it again', onclick:() => openScenario(scen.s.id) }), el('button', { type:'button', class:'primary', text:'Close', onclick:closeScenario })));
+      return;
+    }
+    card.append(el('div', { class:'eyebrow', text:`${scen.s.title} · decision ${scen.stepNo}` }), el('h2', { id:'stitle', text:st.title }), el('p', { text:st.text }));
+    const opts = el('div', { class:'opts' });
+    st.choices.forEach((c, i) => {
+      let cls = 'opt'; if(scen.chosen != null){ if(i === scen.chosen) cls += c.best ? ' right' : ' wrong'; }
+      opts.append(el('button', { type:'button', class:cls, disabled:scen.chosen != null, onclick:() => choose(i) }, el('span', { class:'k', text:'ABCD'[i] }), el('span', { text:c.label })));
+    });
+    card.append(opts);
+    if(scen.chosen != null){
+      const c = st.choices[scen.chosen];
+      card.append(el('div', { class:'choice-fb ' + (c.best ? 'ok' : 'bad') }, el('strong', { text:c.best ? 'Good call' : 'Consider the consequences' }), el('p', { text:c.feedback })));
+      card.append(el('div', { class:'actions' }, el('button', { type:'button', class:'primary', text:'See what happens', onclick:continueScenario })));
+    } else card.append(el('div', { class:'actions' }, el('button', { type:'button', text:'Leave scenario', onclick:closeScenario })));
+  }
+
   /* ---------- refresh everything after a state change ---------- */
   function refresh(){
     if(open?.qid) lastQid = open.qid;
@@ -440,9 +657,15 @@ export function createApp({ spec, build }){
     const xr = renderer.xr.isPresenting;
     ui.quiz.hidden = xr || !open;
     if(open && !xr) renderQuizDom();
+    ui.video.hidden = xr || !video;
+    if(video && !xr){ if(vidEl.parentNode !== ui.video.firstChild) ui.vTitle.after(vidEl); renderVideoDom(); }
+    ui.scen.hidden = xr || !scen;
+    if(scen && !xr) renderScenarioDom();
+    vidPlane.visible = xr && !!video; vidPanel.mesh.visible = xr && !!video;
+    vidPanel.dirty = true;
     ui.tutor.hidden = xr || !tutor.open;
     if(tutor.open && !xr) renderTutorDom();
-    quizPanel.mesh.visible = xr && !!open; tutorPanel.mesh.visible = xr && tutor.open;
+    quizPanel.mesh.visible = xr && (!!open || !!scen); tutorPanel.mesh.visible = xr && tutor.open;
     hud.dirty = quizPanel.dirty = tutorPanel.dirty = true;
     pins.forEach(p => p.setState());
   }
@@ -460,14 +683,15 @@ export function createApp({ spec, build }){
     sp.visible = false; pinRoot.add(sp);
     let last = '';
     sp.setState = () => {
-      const done = hotspotDone(h.id), some = Qs.some(q => q.hotspot === h.id && attempt.answers[q.id]);
+      const done = hotspotDone(h.id), some = hotspotStarted(h.id);
       const key = done + '|' + some; if(key === last) return; last = key;
       const x = c.getContext('2d'); x.clearRect(0, 0, 128, 128);
-      x.beginPath(); x.arc(64, 64, 58, 0, TAU); x.fillStyle = '#ffffff'; x.fill();
-      x.beginPath(); x.arc(64, 64, 48, 0, TAU); x.fillStyle = done ? '#2f8a45' : some ? '#17a3a0' : '#ff6a13'; x.fill();
+      x.beginPath(); x.arc(64, 64, 58, 0, TAU); x.fillStyle = h.scenario ? '#c2410c' : '#ffffff'; x.fill();
+      x.beginPath(); x.arc(64, 64, 48, 0, TAU); x.fillStyle = done ? '#2f8a45' : h.scenario ? '#14204a' : some ? '#17a3a0' : '#ff6a13'; x.fill();
+      if(h.video && !done){ x.beginPath(); x.moveTo(98, 92); x.lineTo(122, 106); x.lineTo(98, 120); x.closePath(); x.fillStyle = '#14204a'; x.fill(); }
       x.fillStyle = '#ffffff'; x.textAlign = 'center'; x.textBaseline = 'middle';
       if(done){ x.lineWidth = 12; x.strokeStyle = '#fff'; x.lineCap = 'round'; x.beginPath(); x.moveTo(40, 66); x.lineTo(57, 82); x.lineTo(88, 48); x.stroke(); }
-      else { x.font = '800 56px "Bricolage Grotesque", system-ui, sans-serif'; x.fillText(String(h.n), 64, 68); }
+      else { x.font = '800 56px "Bricolage Grotesque", system-ui, sans-serif'; x.fillText(h.scenario ? '!' : String(h.n), 64, 68); }
       tex.needsUpdate = true;
     };
     sp.setState();
@@ -478,7 +702,8 @@ export function createApp({ spec, build }){
 
   /* ---------- in-headset panels ---------- */
   const hud = new Panel(1024, 600, 0.62), quizPanel = new Panel(1024, 1000, 0.78), tutorPanel = new Panel(1024, 1000, 0.72), keypad = new Panel(1024, 900, 0.6);
-  for(const p of [hud, quizPanel, tutorPanel, keypad]) scene.add(p.mesh);
+  const vidPanel = new Panel(1024, 200, 0.64), consentPanel = new Panel(1024, 1000, 0.7);
+  for(const p of [hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel]) scene.add(p.mesh);
   let viewIdx = 0;
   hud.draw = p => {
     p.bg();
@@ -493,12 +718,69 @@ export function createApp({ spec, build }){
     p.text(`${n} of ${Qs.length} answered · ${c} correct${best ? ` · best ${best.pct}%` : ''}`, 44, 314, { size:28, weight:600 });
     p.button('tutor', 44, 350, 300, 76, 'Ask the tutor', { fill:'#2b4fd8', color:'#ffffff' });
     p.button('restart', 362, 350, 260, 76, 'Start again');
-    if(!PANO) p.button('pause', 640, 350, 340, 76, playing ? 'Pause motion' : 'Resume motion');
-    p.para(PANO ? 'Look around · point at a numbered pin and pull the trigger · Left stick: turn the scene' : 'Point at a numbered pin and pull the trigger · A/X: change view · B/Y: pause · Grip: move · Right stick: zoom', 44, 480, 936, { size:24, color:'#4b5679' });
+    if(!PANO || panoVideo) p.button('pause', 640, 350, 340, 76, PANO ? (panoVideo.paused ? 'Play video' : 'Pause video') : playing ? 'Pause motion' : 'Resume motion');
+    let bx = 44;
+    if(intro.ok){ p.button('intro', bx, 440, 260, 60, intro.playing ? 'Stop guide' : 'Play guide', { size:22 }); bx += 278; }
+    if(panoVideo){ p.button('sound', bx, 440, 220, 60, panoVideo.muted ? 'Sound on' : 'Sound off', { size:22 }); bx += 238; }
+    if(research.audio){ p.button('rec', bx, 440, 300, 60, '● Recording · stop', { size:22, fill:'#fdf0e8', color:'#c2410c' }); bx += 318; }
+    p.para(PANO ? 'Look around · point at a numbered pin and pull the trigger · Left stick: turn the scene' : 'Point at a pin and pull the trigger · A/X: view · B/Y: pause · Grip: move · Right stick: zoom', 44, 540, 936, { size:22, color:'#4b5679', maxLines:1 });
   };
-  hud.onClick = id => { if(id === 'tutor') toggleTutor(); if(id === 'restart') restart(); if(id === 'pause') setPlaying(!playing); };
+  hud.onClick = id => {
+    if(id === 'tutor') toggleTutor(); if(id === 'restart') restart();
+    if(id === 'pause'){ if(PANO) togglePanoVideo(); else setPlaying(!playing); }
+    if(id === 'intro') intro.playing ? intro.stop() : intro.play();
+    if(id === 'sound') togglePanoSound();
+    if(id === 'rec') research.stopAudio();
+  };
+  vidPanel.draw = p => {
+    p.bg();
+    const h = video && hById(video.hid), more = video && qsFor(video.hid).some(q => !attempt.answers[q.id]);
+    p.text(h ? `${h.n} · ${h.video.title || h.title}` : '', 44, 70, { size:30, weight:800, max:936 });
+    p.button('vplay', 44, 100, 260, 76, vidEl.paused ? 'Play' : 'Pause', { size:26 });
+    p.button('vclose', 322, 100, 260, 76, 'Close', { size:26 });
+    p.button('vnext', 600, 100, 380, 76, more ? 'Skip to questions' : 'Done', { fill:'#2b4fd8', color:'#fff', size:26 });
+  };
+  vidPanel.onClick = id => {
+    if(id === 'vplay'){ vidEl.paused ? vidEl.play().catch(() => {}) : vidEl.pause(); }
+    if(id === 'vclose') finishVideo('close');
+    if(id === 'vnext') finishVideo('skip');
+  };
+  consentPanel.draw = p => {
+    p.bg();
+    p.text(`RESEARCH STUDY · ${research.study}`, 54, 90, { size:24, weight:700, color:'#17a3a0' });
+    p.text('Would you like to take part?', 54, 150, { size:42, weight:800 });
+    p.para('If you agree, the model records what you do in it: points you open, answers and decisions with timings, views and tutor questions, under a coded ID (never your name). Voluntary, no effect on marks, stop at any time. Audio of your discussion is a separate choice.', 54, 210, 916, { size:27, color:'#4b5679', maxLines:9 });
+    p.button('both', 54, 560, 916, 100, 'Take part, and record audio', { fill:'#2b4fd8', color:'#fff' });
+    p.button('noaudio', 54, 680, 916, 100, 'Take part, no audio');
+    p.button('no', 54, 800, 916, 100, 'No thanks');
+  };
+  consentPanel.onClick = id => { if(id === 'both') decideConsent(true, true); if(id === 'noaudio') decideConsent(true, false); if(id === 'no') decideConsent(false, false); };
   quizPanel.draw = p => {
     p.bg();
+    if(scen){
+      const st = scen.s.steps[scen.stepId];
+      p.text(`${scen.s.title.toUpperCase()} · ${st.end ? 'OUTCOME' : 'DECISION ' + scen.stepNo}`, 54, 82, { size:24, weight:700, color:'#c2410c', max:916 });
+      let y = p.para(st.title, 54, 140, 916, { size:36, weight:800, lh:1.2, maxLines:2 }) + 6;
+      y = p.para(st.text, 54, y, 916, { size:25, color:'#4b5679', lh:1.3, maxLines:st.end ? 6 : 5 }) + 14;
+      if(st.end){
+        const best = scen.path.filter(x => x.best).length;
+        scen.path.slice(-4).forEach(x => { p.button('-', 54, y, 916, 62, `${x.best ? '✓' : '✗'} ${x.choice}`, { size:22, weight:600, fill:x.best ? '#ecf7ef' : '#fdf0e8' }); y += 72; });
+        p.text(`${best} of ${scen.path.length} decisions matched good practice`, 54, y + 30, { size:26, weight:700 });
+        p.button('sagain', 54, 880, 440, 90, 'Run it again'); p.button('sclose', 530, 880, 440, 90, 'Close', { fill:'#2b4fd8', color:'#fff' });
+        return;
+      }
+      if(scen.chosen == null){
+        st.choices.forEach((c, i) => { p.button('c' + i, 54, y, 916, 104, `${'ABCD'[i]}.  ${c.label}`, { size:24, weight:600 }); y += 116; });
+        p.button('sclose', 54, 900, 916, 70, 'Leave scenario', { size:22 });
+      } else {
+        const c = st.choices[scen.chosen];
+        p.button('-', 54, y, 916, 90, c.label, { size:24, weight:600, fill:c.best ? '#ecf7ef' : '#fdf0e8', stroke:c.best ? '#2f8a45' : '#c2410c' });
+        p.text(c.best ? 'Good call' : 'Consider the consequences', 54, y + 140, { size:32, weight:800, color:c.best ? '#2f8a45' : '#c2410c' });
+        p.para(c.feedback, 54, y + 186, 916, { size:25, color:'#4b5679', lh:1.3, maxLines:7 });
+        p.button('snext', 54, 880, 916, 90, 'See what happens', { fill:'#2b4fd8', color:'#fff' });
+      }
+      return;
+    }
     if(open?.done){
       const s = correctCount(), pct = Math.round(s / Qs.length * 100);
       p.text(`ATTEMPT ${attempt.n} COMPLETE`, 54, 100, { size:26, weight:700, color:'#17a3a0' });
@@ -528,7 +810,14 @@ export function createApp({ spec, build }){
     }
   };
   quizPanel.onClick = id => {
-    if(!id) return;
+    if(!id || id === '-') return;
+    if(scen){
+      if(id[0] === 'c') choose(+id.slice(1));
+      else if(id === 'snext') continueScenario();
+      else if(id === 'sagain') openScenario(scen.s.id);
+      else if(id === 'sclose') closeScenario();
+      return;
+    }
     if(id[0] === 'o') answer(+id.slice(1));
     else if(id === 'next') nextQuestion();
     else if(id === 'close') closeQuiz();
@@ -584,8 +873,102 @@ export function createApp({ spec, build }){
     else if(keypad.value.length < 10 && !(k === 'B' && keypad.value.length)) keypad.value += k;
     keypad.error = false; keypad.dirty = true;
   };
-  const panels = [keypad, quizPanel, tutorPanel, hud];
+  const panels = [consentPanel, keypad, quizPanel, tutorPanel, vidPanel, hud];
   document.fonts?.ready.then(() => { panels.forEach(p => p.dirty = true); });
+
+  /* ---------- 360 video controls ---------- */
+  function togglePanoVideo(){
+    if(!panoVideo) return;
+    if(panoVideo.paused){ panoVideo.play().catch(() => {}); } else panoVideo.pause();
+  }
+  function togglePanoSound(){
+    if(!panoVideo) return;
+    panoVideo.muted = !panoVideo.muted; if(panoVideo.paused) panoVideo.play().catch(() => {});
+    research.log('pano_sound', { on:!panoVideo.muted }); syncPanoUi();
+  }
+  function syncPanoUi(){
+    if(!panoVideo) return;
+    ui.vplay.textContent = panoVideo.paused ? 'Play video' : 'Pause video';
+    ui.vsound.textContent = panoVideo.muted ? 'Sound on' : 'Sound off'; hud.dirty = true;
+  }
+  if(panoVideo){
+    panoVideo.addEventListener('play', () => { research.log('pano_play', { at:Math.round(panoVideo.currentTime) }); syncPanoUi(); });
+    panoVideo.addEventListener('pause', () => { research.log('pano_pause', { at:Math.round(panoVideo.currentTime) }); syncPanoUi(); });
+    panoVideo.play().catch(() => {});
+  }
+
+  /* ---------- Synthetic Matt guide: a green-screen clip keyed out over the scene ---------- */
+  const intro = { ok:false, playing:false, play(){}, stop(){} };
+  if(spec.intro?.src){
+    const I = spec.intro, key = new THREE.Color(I.key ?? 0x00ff00);
+    const v = document.createElement('video');
+    Object.assign(v, { crossOrigin:'anonymous', playsInline:true, preload:'auto' }); v.setAttribute('playsinline', ''); v.src = I.src;
+    const toUV = (r, g, b) => [r * -0.169 + g * -0.331 + b * 0.5 + 0.5, r * 0.5 + g * -0.419 + b * -0.081 + 0.5];
+    const kUV = toUV(key.r, key.g, key.b), SIM = I.similarity ?? 0.16, SMO = I.smoothness ?? 0.08, SPILL = I.spill ?? 0.12;
+    /* desktop: keyed on a 2D canvas, bottom left */
+    const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently:true });
+    const skip = el('button', { type:'button', text:'Skip guide', onclick:() => intro.stop() });
+    const replay = el('button', { type:'button', class:'chip', text:'▶ Guide', title:'Play the introduction again', hidden:true, onclick:() => intro.play() });
+    ui.hud.firstChild.insertBefore(replay, ui.sid);
+    const box = el('div', { class:'presenter', hidden:true, 'aria-label':I.title || 'Guide' }, cv, el('div', { class:'btns' }, skip));
+    document.body.append(box);
+    function keyFrame(){
+      const w = 320, h = Math.round(w * (v.videoHeight || 9) / (v.videoWidth || 16));
+      if(cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+      cx.drawImage(v, 0, 0, w, h);
+      const img = cx.getImageData(0, 0, w, h), d = img.data;
+      for(let i = 0; i < d.length; i += 4){
+        const r = d[i] / 255, g = d[i + 1] / 255, b = d[i + 2] / 255, uv = toUV(r, g, b);
+        const dist = Math.hypot(uv[0] - kUV[0], uv[1] - kUV[1]);
+        const a = clamp((dist - SIM) / SMO, 0, 1);
+        const sp = Math.pow(clamp((dist - SIM) / SPILL, 0, 1), 1.5), l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        d[i] = 255 * (l + (r - l) * sp); d[i + 1] = 255 * (l + (g - l) * sp); d[i + 2] = 255 * (l + (b - l) * sp); d[i + 3] = 255 * a;
+      }
+      cx.putImageData(img, 0, 0);
+    }
+    /* headset: the same key in a shader on a plane beside you */
+    const vt = new THREE.VideoTexture(v); vt.colorSpace = THREE.NoColorSpace;
+    const mat = new THREE.ShaderMaterial({
+      transparent:true, depthWrite:false, toneMapped:false,
+      uniforms:{ map:{ value:vt }, kuv:{ value:new THREE.Vector2(...kUV) }, sim:{ value:SIM }, smo:{ value:SMO }, spill:{ value:SPILL } },
+      vertexShader:'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader:`uniform sampler2D map; uniform vec2 kuv; uniform float sim, smo, spill; varying vec2 vUv;
+        vec2 toUV(vec3 c){ return vec2(dot(c, vec3(-0.169, -0.331, 0.5)) + 0.5, dot(c, vec3(0.5, -0.419, -0.081)) + 0.5); }
+        void main(){ vec4 c = texture2D(map, vUv); float d = distance(toUV(c.rgb), kuv);
+          float a = clamp((d - sim) / smo, 0.0, 1.0); float s = pow(clamp((d - sim) / spill, 0.0, 1.0), 1.5);
+          float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722)); if(a < 0.02) discard;
+          gl_FragColor = vec4(mix(vec3(l), c.rgb, s), a); }`
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat); plane.visible = false; plane.renderOrder = 996; scene.add(plane);
+    intro.place = () => {
+      const H = I.xr?.height ?? 1.05, asp = (v.videoWidth || 16) / (v.videoHeight || 9);
+      plane.scale.set(H * asp, H, 1);
+      plane.position.set(...(I.xr?.pos || [-1.15, 1.32, -1.55])); plane.lookAt(0, plane.position.y, 0);
+    };
+    intro.play = () => {
+      v.currentTime = 0; v.muted = false;
+      v.play().then(() => { intro.playing = true; research.log('intro_play'); sync(); })
+        .catch(() => { v.muted = true; v.play().then(() => { intro.playing = true; sync(); }).catch(() => { intro.playing = false; sync(); }); });
+    };
+    intro.stop = (why = 'skip') => { if(!intro.playing) return; research.log('intro_stop', { why, at:Math.round(v.currentTime) }); v.pause(); intro.playing = false; sync(); };
+    function sync(){
+      const xr = renderer.xr.isPresenting;
+      box.hidden = xr || !intro.playing; replay.hidden = !intro.ok || intro.playing;
+      plane.visible = xr && intro.playing; if(plane.visible) intro.place();
+      hud.dirty = true;
+    }
+    intro.sync = sync;
+    intro.frame = () => { if(intro.playing && !renderer.xr.isPresenting && v.readyState >= 2) keyFrame(); };
+    v.addEventListener('loadedmetadata', () => { intro.ok = true; sync(); });
+    v.addEventListener('ended', () => { research.log('intro_end'); intro.playing = false; sync(); });
+    v.addEventListener('error', () => { intro.ok = false; intro.playing = false; box.hidden = true; replay.hidden = true; plane.visible = false; });
+  }
+  let introShown = false;
+  function maybeIntro(){
+    if(introShown || !spec.intro?.src) return; introShown = true;
+    let seen = false; try{ seen = sessionStorage.getItem(spec.id + ':intro') === '1'; sessionStorage.setItem(spec.id + ':intro', '1'); }catch{}
+    if(!seen) intro.play();
+  }
 
   /* ---------- static merge after build-in ---------- */
   let merged = false;
@@ -645,8 +1028,8 @@ export function createApp({ spec, build }){
     controls.update();
     controls.addEventListener('start', () => { controls.autoRotate = false; });
     renderer.domElement.addEventListener('wheel', e => { e.preventDefault(); camera.fov = clamp(camera.fov + e.deltaY * 0.03, 30, 90); camera.updateProjectionMatrix(); }, { passive:false });
-    ui.play.hidden = true; ui.dock.firstChild.hidden = true;
-    navigator.xr?.isSessionSupported('immersive-vr').then(ok => { ui.dock.firstChild.hidden = !ok; }).catch(() => {});
+    ui.play.hidden = true; ui.dock.firstChild.hidden = !panoVideo;
+    navigator.xr?.isSessionSupported('immersive-vr').then(ok => { ui.dock.firstChild.hidden = !ok && !panoVideo; }).catch(() => {});
     ui.hint.textContent = 'Drag to look around · scroll to zoom · click a numbered pin to answer its questions';
   }
   addEventListener('resize', () => {
@@ -677,6 +1060,7 @@ export function createApp({ spec, build }){
   /* ---------- play / pause ---------- */
   let playing = true;
   function setPlaying(v){
+    if(playing !== v) research.log(v ? 'motion_play' : 'motion_pause');
     playing = v; ui.play.textContent = v ? 'Pause' : 'Play';
     ui.pill.classList.toggle('paused', !v); ui.pill.lastChild.textContent = v ? 'Live' : 'Paused';
     hud.dirty = true;
@@ -691,6 +1075,7 @@ export function createApp({ spec, build }){
     model.scale.setScalar(v.s); model.rotation.set(0, v.yaw, 0);
     const a = v.anchor.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), v.yaw).multiplyScalar(v.s);
     model.position.copy(v.at).sub(a); syncShadow(); hud.dirty = true;
+    research.log('view', { name:v.name });
   }
   const ctrlFactory = new XRControllerModelFactory(), handFactory = new XRHandModelFactory();
   const holders = new Set(); let stretch = null;
@@ -716,9 +1101,10 @@ export function createApp({ spec, build }){
     ray.ray.origin.setFromMatrixPosition(c.matrixWorld); ray.ray.direction.set(0, 0, -1).applyMatrix4(tmpM);
     ray.camera = renderer.xr.getCamera();
     const vis = panels.filter(p => p.mesh.visible).map(p => p.mesh);
-    const ph = keypad.mesh.visible ? ray.intersectObject(keypad.mesh, false)[0] : ray.intersectObjects(vis, false)[0];
+    const modal = consentPanel.mesh.visible ? consentPanel : keypad.mesh.visible ? keypad : null;
+    const ph = modal ? ray.intersectObject(modal.mesh, false)[0] : ray.intersectObjects(vis, false)[0];
     if(ph) return ph;
-    if(keypad.mesh.visible) return null;
+    if(modal) return null;
     return ray.intersectObjects(pins.filter(p => p.visible), false)[0] || null;
   }
   function xrSelect(c){
@@ -802,14 +1188,19 @@ export function createApp({ spec, build }){
       placePanel(quizPanel, 0.72, 1.32, -0.82);
       placePanel(tutorPanel, 1.12, 1.32, -0.12);
       placePanel(keypad, 0, 1.32, -0.75);
+      placePanel(consentPanel, 0, 1.32, -0.74);
+      vidPlane.position.set(0, 1.5, -1.15); vidPlane.lookAt(0, 1.5, 0.15);
+      placePanel(vidPanel, 0, 1.0, -1.05);
       hud.mesh.visible = true;
+      research.log('xr_enter', { mode });
       if(!PANO){ world.add(pinRoot); pinRoot.matrixAutoUpdate = true; pinRoot.matrix.identity(); pinRoot.position.set(0, 0, 0); }
-      placeView(0); refresh();
-      if(!student) askStudent();
+      placeView(0); refresh(); intro.sync?.();
+      afterGates(null);
       session.addEventListener('end', endXR);
     }catch(err){ ui.hint.textContent = 'Could not start ' + (mode === 'immersive-ar' ? 'mixed reality' : 'VR') + ': ' + err.message; }
   }
   function endXR(){
+    research.log('xr_exit');
     if(PANO){ panoGroup.position.set(0, 0, 0); panoGroup.rotation.y = 0; }
     else { overlay.add(pinRoot); pinRoot.matrixAutoUpdate = false; }
     for(const c of [...holders]) grabEnd(c);
@@ -821,8 +1212,8 @@ export function createApp({ spec, build }){
     catcher.visible = true; catcher.position.y = spec.catcherY ?? -5.5;
     camera.near = 0.5; camera.far = 600; camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
-    refresh();
-    if(!student) askStudent();
+    refresh(); intro.sync?.();
+    afterGates(null);
   }
   if(navigator.xr){
     navigator.xr.isSessionSupported('immersive-vr').then(ok => { ui.vr.hidden = !ok; }).catch(() => {});
@@ -873,6 +1264,7 @@ export function createApp({ spec, build }){
       s.m.scale.setScalar(0.6 + p * 1.6); s.m.material.opacity = Math.sin(p * Math.PI) * 0.75;
     }
     for(const p of pins) p.position.y = p.userData.base + 0.07 * Math.sin(now / 500 + p.userData.i);
+    intro.frame?.();
 
     if(renderer.xr.isPresenting){
       for(const p of panels) if(p.mesh.visible && p.dirty) p.redraw();
@@ -887,6 +1279,6 @@ export function createApp({ spec, build }){
   });
 
   refresh();
-  if(!student) askStudent();
-  return { scene, kit, openHotspot, panels:{ hud, quizPanel, tutorPanel, keypad } };
+  afterGates(maybeIntro);
+  return { scene, kit, openHotspot, openScenario, research, intro, effect, panels:{ hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel } };
 }
