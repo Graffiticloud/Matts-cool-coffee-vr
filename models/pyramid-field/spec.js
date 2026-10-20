@@ -35,6 +35,11 @@ export const spec = {
   ],
 
   hotspots:[
+    { id:'intro', n:'▶', title:'Introduction', pos:[-0.2, 3.4, 10.4], concept:'the Pyramid Field case and how to use this model',
+      blurb:'An introduction to the Pyramid Field case and this model.',
+      card:{ sheet:'./intro-card.jpg', cols:4, rows:6, frames:24, fps:8, w:3.2, aspect:0.375, label:'Introduction' },
+      video:{ src:'https://pub-deabebbc2a4743a28d1d32dd1c97e78d.r2.dev/Gifs/Video/BAA%20Intor%20hi.mp4', poster:'./intro-poster.jpg', title:'Introduction',
+        note:'Watch the introduction, then explore the numbered pins and the live crowd-surge scenario.' } },
     { id:'surge-scenario', n:'!', title:'Live scenario: crowd surge', pos:[1.6, 2.7, -1.4], scenario:'surge', concept:'show-stop decision making',
       blurb:'A branching scenario. A surge builds at the barrier during the headline set. You make the calls; the field responds to each decision.' },
     { id:'stage', n:1, title:'The Pyramid Stage', pos:[0, 9.6, -7.2], concept:'place identity and the event experience',

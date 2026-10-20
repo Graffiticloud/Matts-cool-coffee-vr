@@ -336,7 +336,7 @@ export function createApp({ spec, build }){
   vidPlane.renderOrder = 997; vidPlane.visible = false; scene.add(vidPlane);
   function openVideo(hid){
     const h = hById(hid); video = { hid }; open = null;
-    if(vidEl.dataset.src !== h.video.src){ vidEl.src = h.video.src; vidEl.dataset.src = h.video.src; if(h.video.poster) vidEl.poster = h.video.poster; }
+    if(vidEl.dataset.src !== h.video.src){ vidEl.src = h.video.src; vidEl.dataset.src = h.video.src; vidEl.poster = h.video.poster || ''; }
     vidEl.currentTime = 0; vidEl.muted = false;
     research.log('video_open', { hotspot:hid, src:h.video.src });
     refresh();
@@ -673,7 +673,36 @@ export function createApp({ spec, build }){
   /* ---------- hotspot pins: drawn after post-processing on desktop so ACES and AO don't dull them ---------- */
   const overlay = new THREE.Scene(), pinRoot = new THREE.Group();
   overlay.add(pinRoot); pinRoot.matrixAutoUpdate = false;
+  /* a card pin: an animated image (sprite sheet made from a GIF) with a play label, usually for a video pin */
+  function cardPin(h, i){
+    const C = h.card, cols = C.cols || 1, rows = C.rows || 1, frames = C.frames || cols * rows;
+    const tex = new THREE.TextureLoader().load(C.sheet); tex.colorSpace = THREE.SRGBColorSpace;
+    tex.repeat.set(1 / cols, 1 / rows); tex.offset.set(0, 1 - 1 / rows);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, depthTest:false, transparent:true, toneMapped:false }));
+    const w = C.w ?? 2.4, hgt = w * (C.aspect ?? 0.375);
+    sp.renderOrder = 998; sp.scale.set(w, hgt, 1);
+    if(h.px) sp.position.copy(pxToDir(...h.px).multiplyScalar(spec.pano?.pinRadius ?? 8)); else sp.position.set(...h.pos);
+    sp.userData = { hotspot:h.id, base:sp.position.y, i, anim:true, card:{ tex, cols, rows, frames, fps:C.fps ?? 8 } };
+    /* label strip under the image */
+    const lc = document.createElement('canvas'); lc.width = 512; lc.height = 96;
+    const ltex = new THREE.CanvasTexture(lc); ltex.colorSpace = THREE.SRGBColorSpace;
+    const label = new THREE.Sprite(new THREE.SpriteMaterial({ map:ltex, depthTest:false, transparent:true, toneMapped:false }));
+    label.renderOrder = 999; label.scale.set(w * 0.62 / w, (w * 0.62 * 96 / 512) / hgt, 1); label.position.set(0, -0.5 - (w * 0.62 * 96 / 512) / hgt / 2 - 0.04, 0);
+    label.raycast = () => {}; sp.add(label);
+    let last = '';
+    sp.setState = () => {
+      const done = hotspotDone(h.id); if(String(done) === last) return; last = String(done);
+      const x = lc.getContext('2d'); x.clearRect(0, 0, 512, 96);
+      x.beginPath(); x.roundRect(4, 4, 504, 88, 44); x.fillStyle = done ? '#2f8a45' : '#ff6a13'; x.fill();
+      x.fillStyle = '#fff'; x.beginPath(); x.moveTo(44, 26); x.lineTo(78, 48); x.lineTo(44, 70); x.closePath(); x.fill();
+      x.font = '800 44px "Bricolage Grotesque", system-ui, sans-serif'; x.textBaseline = 'middle'; x.fillText(C.label || h.title, 100, 50, 390);
+      ltex.needsUpdate = true;
+    };
+    sp.setState(); sp.visible = false; pinRoot.add(sp);
+    return sp;
+  }
   const pins = H.map((h, i) => {
+    if(h.card) return cardPin(h, i);
     const c = document.createElement('canvas'); c.width = c.height = 128;
     const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:tex, depthTest:false, transparent:true, toneMapped:false }));
@@ -1263,7 +1292,11 @@ export function createApp({ spec, build }){
       s.m.position.set(s.x + Math.sin(p * 6 + s.i) * 0.06 * s.size, s.y + p * s.rise, s.z);
       s.m.scale.setScalar(0.6 + p * 1.6); s.m.material.opacity = Math.sin(p * Math.PI) * 0.75;
     }
-    for(const p of pins) p.position.y = p.userData.base + 0.07 * Math.sin(now / 500 + p.userData.i);
+    for(const p of pins){
+      p.position.y = p.userData.base + 0.07 * Math.sin(now / 500 + p.userData.i);
+      const cd = p.userData.card;
+      if(cd){ const f = Math.floor(now / 1000 * cd.fps) % cd.frames; cd.tex.offset.set((f % cd.cols) / cd.cols, 1 - (Math.floor(f / cd.cols) + 1) / cd.rows); }
+    }
     intro.frame?.();
 
     if(renderer.xr.isPresenting){
