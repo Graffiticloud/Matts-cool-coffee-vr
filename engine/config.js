@@ -4,5 +4,5 @@
 export const CONFIG = {
   tutorUrl: 'https://xr-diorama.matthew-frew.workers.dev/tutor',
   researchUrl: 'https://xr-diorama.matthew-frew.workers.dev',
-  scoresUrl: ''   // paste the Apps Script web app address here: https://script.google.com/macros/s/XXXXXXXX/exec
+  scoresUrl: 'https://script.google.com/macros/s/AKfycbxN8mKsjX0XR967Nv8LdOQSoGH3nhHoTaxR3FX_x_MiFW1YRXvnmpsr2XpiLBcPEl5B/exec'
 };
