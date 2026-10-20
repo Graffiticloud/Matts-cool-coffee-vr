@@ -14,15 +14,17 @@ Interactive 3D teaching models that run in any browser and in VR or mixed realit
 ```
 engine/
   kit.js       building blocks: rounded blocks, people, queues, walkers, instanced crowds, buildings, trees, cars, tables, lights
-  runtime.js   rendering, VR/mixed reality, views, grab and zoom, hotspot pins, quiz, scoring, tutor, panels
-  config.js    the two web addresses for the tutor and the score sheet (shared by every model)
+  runtime.js   rendering, VR/mixed reality, views, grab and zoom, pins, quiz, scoring, tutor, video pins, 360 video,
+               branching scenarios, guide intro, panels
+  research.js  opt-in research capture (consent, event log, audio segments)
+  config.js    web addresses for the tutor/research Worker and the score sheet (shared by every model)
 models/<id>/
   index.html   a thin page that loads the engine
   scene.js     builds that model's world from the kit
   spec.js      title, module, views, hotspots, questions, tutor brief, privacy notice
 ops/
-  tutor-worker/worker.js   AI tutor relay (Cloudflare Worker) that keeps the API key off the page
-  scores/Code.gs           Google Apps Script that writes every answer to a Google Sheet
+  tutor-worker/worker.js   Cloudflare Worker: AI tutor, research logging, audio transcription, export
+  scores/Code.gs           Google Apps Script: answers, attempts and decisions to the Sheet; nightly research export
 ```
 
 ## Making a new model
@@ -38,6 +40,23 @@ ops/
 2. Copy `models/sagrada-360/index.html` and `spec.js`. Set `type:'pano'` and `pano:{ src, width, height, start:[x, y], fov, pinRadius }`.
 3. Give each hotspot `px:[x, y]`: the pixel position on the photo where its pin should sit.
 4. No `scene.js` is needed. Blur the faces of bystanders before publishing.
+
+## Feature reference (spec.js)
+
+- **Video pin**: give a hotspot `video:{ src, poster, title, note }`. The clip opens first; the pin's questions follow when it ends or is skipped. Add `card:{ sheet, cols, rows, frames, fps, w, aspect, label }` to show an animated image card instead of a numbered pin (make the sprite sheet from a GIF).
+- **360 video**: `type:'pano'` with `pano:{ video:'<R2 url>', src:'./poster.jpg', width, height, start, fov, pinRadius }`. MP4 H.264, equirectangular 2:1, 4096×2048 at 20–30 Mbps.
+- **Branching scenario**: `scenarios:[{ id, title, start, steps:{ id:{ title, text, effect, choices:[{ label, best, next, feedback, effect }] } | { end:true, outcome, title, text, ref } } }]` and a hotspot with `scenario:'<id>'`. `scene.js` returns `{ effect(name) }` so decisions change the scene. Every decision goes to the Decisions tab.
+- **Guide intro (Synthetic Matt)**: `intro:{ src:'./intro.mp4', key:0x00ff00, similarity, smoothness, xr:{ pos, height } }`. Pure green background; keyed on the page and in the headset. Plays once per browser session; replay from the HUD.
+- **Research capture**: only with `?study=CODE` on the address and the participant's consent; audio is a separate tick. Needs ethics approval before use with students.
+
+## Hosting and data
+
+| What | Where |
+|---|---|
+| Tutor, research log, transcription | Cloudflare Worker `xr-diorama` (https://xr-diorama.matthew-frew.workers.dev) |
+| Large media (360 video, clips) | R2 bucket `xr-media`, public at `https://pub-deabebbc2a4743a28d1d32dd1c97e78d.r2.dev/<path>` |
+| Research events, audio, transcripts | R2 bucket `xr-research` (private), copied nightly to Drive › XR diorama data (private) › Research exports |
+| Quiz answers, attempts, decisions | Google Sheet "XR diorama scores" in Drive › XR diorama data (private) |
 
 ## One-time setup: AI tutor
 

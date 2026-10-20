@@ -219,7 +219,7 @@ export class Kit {
     return p;
   }
 
-  /* instanced crowd: one draw call for bodies, one for heads. spots: [{x, z, ...}]; motion(spot, i, args) returns { dy, yaw } */
+  /* instanced crowd: one draw call for bodies, one for heads. spots: [{x, z, ...}]; motion(spot, i, args) returns { dy, yaw, dx?, dz? } */
   crowd(spots, { scale = 0.6, motion } = {}){
     const C = this.C, N = spots.length;
     const bodyGeo = this.rbGeo(0.26, 0.5, 0.24, 0.08), headGeo = new THREE.SphereGeometry(0.11, 12, 9);
@@ -242,8 +242,9 @@ export class Kit {
       for(let i = 0; i < N; i++){
         const s = spots[i], m = motion ? motion(s, i, args) : { dy:0, yaw:Math.PI / 2 };
         q.setFromAxisAngle(up, m.yaw);
-        m4.compose(v.set(s.x, this.G + 0.25 * ps + m.dy, s.z), q, sc); bodies.setMatrixAt(i, m4);
-        m4.compose(v.set(s.x, this.G + 0.6 * ps + m.dy, s.z), q, sc); heads.setMatrixAt(i, m4);
+        const x = s.x + (m.dx || 0), z = s.z + (m.dz || 0);
+        m4.compose(v.set(x, this.G + 0.25 * ps + m.dy, z), q, sc); bodies.setMatrixAt(i, m4);
+        m4.compose(v.set(x, this.G + 0.6 * ps + m.dy, z), q, sc); heads.setMatrixAt(i, m4);
       }
       bodies.instanceMatrix.needsUpdate = heads.instanceMatrix.needsUpdate = true;
     };
