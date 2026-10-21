@@ -334,8 +334,16 @@ export function createApp({ spec, build }){
   const vidTex = new THREE.VideoTexture(vidEl); vidTex.colorSpace = THREE.SRGBColorSpace;
   const vidPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.28, 0.72), new THREE.MeshBasicMaterial({ map:vidTex, toneMapped:false, depthTest:false }));
   vidPlane.renderOrder = 997; vidPlane.visible = false; scene.add(vidPlane);
+  /* YouTube clips play in YouTube's own player (desktop and phone). A headset session cannot show it, so XR explains and moves on. */
+  const ytFrame = el('iframe', { class:'vid', style:'aspect-ratio:16/9;height:auto;border:0', allow:'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen:true, title:'Video' });
   function openVideo(hid){
-    const h = hById(hid); video = { hid }; open = null;
+    const h = hById(hid); video = { hid, yt:!!h.video.youtube }; open = null;
+    if(h.video.youtube){
+      vidEl.pause();
+      if(!renderer.xr.isPresenting) ytFrame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(h.video.youtube)}?autoplay=1&rel=0&modestbranding=1&playsinline=1${h.video.start ? '&start=' + (h.video.start | 0) : ''}`;
+      research.log('video_open', { hotspot:hid, youtube:h.video.youtube });
+      refresh(); return;
+    }
     if(vidEl.dataset.src !== h.video.src){ vidEl.src = h.video.src; vidEl.dataset.src = h.video.src; vidEl.poster = h.video.poster || ''; }
     vidEl.currentTime = 0; vidEl.muted = false;
     research.log('video_open', { hotspot:hid, src:h.video.src });
@@ -345,8 +353,8 @@ export function createApp({ spec, build }){
   function finishVideo(how){
     if(!video) return;
     const hid = video.hid;
-    research.log('video_close', { hotspot:hid, how, watched:Math.round(vidEl.currentTime), duration:Math.round(vidEl.duration || 0) });
-    vidEl.pause(); video = null;
+    research.log('video_close', video.yt ? { hotspot:hid, how, youtube:true } : { hotspot:hid, how, watched:Math.round(vidEl.currentTime), duration:Math.round(vidEl.duration || 0) });
+    vidEl.pause(); ytFrame.src = 'about:blank'; video = null;
     watched[hid] = true; store.set('watched', watched);
     if(how === 'close'){ noteOpen(null); refresh(); return; }
     openHotspot(hid, { skipVideo:true });
@@ -618,7 +626,7 @@ export function createApp({ spec, build }){
     const h = hById(video.hid), more = qsFor(video.hid).some(q => !attempt.answers[q.id]);
     ui.vEyebrow.textContent = `${h.n} · ${h.title}`;
     ui.vTitle.textContent = h.video.title || 'Watch this first';
-    ui.vNote.textContent = h.video.note || (more ? 'The questions for this point open when the clip ends.' : '');
+    ui.vNote.textContent = [h.video.note || (more ? (video.yt ? 'Press the button below when you have watched it to open the questions.' : 'The questions for this point open when the clip ends.') : ''), h.video.credit].filter(Boolean).join(' ');
     ui.vNote.hidden = !ui.vNote.textContent;
     ui.vNext.textContent = more ? 'Skip to questions' : 'Done';
   }
@@ -658,10 +666,14 @@ export function createApp({ spec, build }){
     ui.quiz.hidden = xr || !open;
     if(open && !xr) renderQuizDom();
     ui.video.hidden = xr || !video;
-    if(video && !xr){ if(vidEl.parentNode !== ui.video.firstChild) ui.vTitle.after(vidEl); renderVideoDom(); }
+    if(video && !xr){
+      const want = video.yt ? ytFrame : vidEl, other = video.yt ? vidEl : ytFrame;
+      if(want.parentNode !== ui.video.firstChild) ui.vTitle.after(want);
+      other.remove(); renderVideoDom();
+    }
     ui.scen.hidden = xr || !scen;
     if(scen && !xr) renderScenarioDom();
-    vidPlane.visible = xr && !!video; vidPanel.mesh.visible = xr && !!video;
+    vidPlane.visible = xr && !!video && !video.yt; vidPanel.mesh.visible = xr && !!video;
     vidPanel.dirty = true;
     ui.tutor.hidden = xr || !tutor.open;
     if(tutor.open && !xr) renderTutorDom();
@@ -765,6 +777,12 @@ export function createApp({ spec, build }){
     p.bg();
     const h = video && hById(video.hid), more = video && qsFor(video.hid).some(q => !attempt.answers[q.id]);
     p.text(h ? `${h.n} · ${h.video.title || h.title}` : '', 44, 70, { size:30, weight:800, max:936 });
+    if(video?.yt){
+      p.text('This YouTube clip plays outside VR: watch it on a laptop or phone.', 44, 140, { size:24, color:'#4b5679', max:540 });
+      p.button('vclose', 600, 100, 170, 76, 'Close', { size:26 });
+      p.button('vnext', 790, 100, 190, 76, more ? 'Questions' : 'Done', { fill:'#2b4fd8', color:'#fff', size:26 });
+      return;
+    }
     p.button('vplay', 44, 100, 260, 76, vidEl.paused ? 'Play' : 'Pause', { size:26 });
     p.button('vclose', 322, 100, 260, 76, 'Close', { size:26 });
     p.button('vnext', 600, 100, 380, 76, more ? 'Skip to questions' : 'Done', { fill:'#2b4fd8', color:'#fff', size:26 });

@@ -8,6 +8,7 @@ Interactive 3D teaching models that run in any browser and in VR or mixed realit
 | Matt's Cool Coffee, inside: BAA experiential-marketing quiz | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/baa-cafe/ |
 | La Sagrada Família 360: BAA heritage, tourism and commerce quiz | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/sagrada-360/ |
 | The Pyramid Field: events health and safety, crowds, operations, servicescape and experience | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/pyramid-field/ |
+| Cannes from Le Suquet 360: BAA heritage, port and cruise tourism | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/cannes-360/ |
 
 ## How it fits together
 
@@ -43,7 +44,7 @@ ops/
 
 ## Feature reference (spec.js)
 
-- **Video pin**: give a hotspot `video:{ src, poster, title, note }`. The clip opens first; the pin's questions follow when it ends or is skipped. Add `card:{ sheet, cols, rows, frames, fps, w, aspect, label }` to show an animated image card instead of a numbered pin (make the sprite sheet from a GIF).
+- **Video pin**: give a hotspot `video:{ src, poster, title, note }` (or `video:{ youtube:'<id>', title, credit }` for a YouTube clip: plays on desktop and phone, not inside VR). The clip opens first; the pin's questions follow when it ends or is skipped. Add `card:{ sheet, cols, rows, frames, fps, w, aspect, label }` to show an animated image card instead of a numbered pin (make the sprite sheet from a GIF).
 - **360 video**: `type:'pano'` with `pano:{ video:'<R2 url>', src:'./poster.jpg', width, height, start, fov, pinRadius }`. MP4 H.264, equirectangular 2:1, 4096×2048 at 20–30 Mbps.
 - **Branching scenario**: `scenarios:[{ id, title, start, steps:{ id:{ title, text, effect, choices:[{ label, best, next, feedback, effect }] } | { end:true, outcome, title, text, ref } } }]` and a hotspot with `scenario:'<id>'`. `scene.js` returns `{ effect(name) }` so decisions change the scene. Every decision goes to the Decisions tab.
 - **Guide intro (Synthetic Matt)**: `intro:{ src:'./intro.mp4', key:0x00ff00, similarity, smoothness, xr:{ pos, height } }`. Pure green background; keyed on the page and in the headset. Plays once per browser session; replay from the HUD.
