@@ -13,7 +13,7 @@
 const SHEET_ID = '1f8t2lvh2U-FaR6K2pvGdkbYqXa0ztMIdNieCxXRAxbc';
 const book_ = () => SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(SHEET_ID);
 
-const ANSWERS = 'Answers', ATTEMPTS = 'Attempts', DECISIONS = 'Decisions', SUMMARY = 'Summary';
+const ANSWERS = 'Answers', ATTEMPTS = 'Attempts', DECISIONS = 'Decisions', SUMMARY = 'Summary', KEYS = 'Keys';
 const DECISION_HEAD = ['Received', 'Student number', 'Model', 'Module', 'Scenario', 'Step', 'Choice', 'Best choice', 'Seconds to decide', 'Path so far'];
 const SID_RE = /^[A-Z]?\d{6,9}$/;
 
@@ -44,7 +44,23 @@ function doPost(e){
   }
 }
 
-function doGet(){ return text_('Scores endpoint is running.'); }
+/* GET ?keys=1&token=<EXPORT_TOKEN>: the answer keys for the Worker's marking (from the Keys tab). Anything else: a status line. */
+function doGet(e){
+  const p = (e && e.parameter) || {};
+  if(!p.keys) return text_('Scores endpoint is running.');
+  const token = PropertiesService.getScriptProperties().getProperty('EXPORT_TOKEN');
+  if(!token || p.token !== token) return json_({ error:'forbidden' });
+  const s = book_().getSheetByName(KEYS);
+  if(!s) return json_({ error:'no keys tab' });
+  const out = {};
+  s.getDataRange().getValues().slice(1).forEach(r => {
+    const [model, question, answer, explain, ref] = r;
+    if(!model || !question || answer === '') return;
+    (out[model] = out[model] || {})[question] = { answer:Number(answer), explain:String(explain || ''), ref:String(ref || '') };
+  });
+  return json_(out);
+}
+function json_(o){ return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 /* Run once from the editor (select setup, press Run) to create the tabs and the summary. */
 function setup(){

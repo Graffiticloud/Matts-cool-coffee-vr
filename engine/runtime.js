@@ -59,6 +59,7 @@ button[disabled]{opacity:.5;cursor:default}
 .opt .k{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#fff;font:700 12px/1 var(--mono);color:var(--royal)}
 .opt.right{border-color:var(--ok);background:#ecf7ef}.opt.right .k{background:var(--ok);color:#fff}
 .opt.wrong{border-color:var(--bad);background:#fdf0e8}.opt.wrong .k{background:var(--bad);color:#fff}
+.opt.pending{border-color:var(--royal);background:#fff}.checking{font:600 14px/1.4 var(--display)!important;color:var(--royal)!important}
 .opt[disabled]{cursor:default;opacity:1}
 .fb{border-radius:16px;padding:14px 16px;background:#f3f0e9;display:flex;flex-direction:column;gap:7px}
 .fb strong{font:700 15px/1 var(--display)}.fb.ok strong{color:var(--ok)}.fb.bad strong{color:var(--bad)}
@@ -252,7 +253,7 @@ export function createApp({ spec, build }){
   const newAttempt = n => ({ n, started:Date.now(), answers:{}, order:Object.fromEntries(Qs.map(q => [q.id, shuffle(q.options.map((_, i) => i))])) });
   function shuffle(a){ for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   let attempt = store.get('attempt', null);
-  if(!attempt || !attempt.order || Qs.some(q => !attempt.order[q.id])) attempt = newAttempt((attempt?.n || 0) + 1);
+  if(!attempt || !attempt.order || Qs.some(q => !attempt.order[q.id]) || Object.values(attempt.answers || {}).some(a => a.answer === undefined)) attempt = newAttempt((attempt?.n || 0) + 1);
   let best = store.get('best', null);
   let open = null; // { qid } or { done:true }
   const saveAttempt = () => store.set('attempt', attempt);
@@ -298,10 +299,27 @@ export function createApp({ spec, build }){
     research.log('question_shown', { question:next.id, hotspot:hid });
     refresh();
   }
-  function answer(displayIdx){
-    const q = qById(open?.qid); if(!q || attempt.answers[q.id]) return;
-    const orig = attempt.order[q.id][displayIdx], correct = orig === q.answer;
-    attempt.answers[q.id] = { chosen:orig, correct };
+  /* Marking. Public specs carry no answer keys: the Worker marks each answer against keys held in the private
+     Sheet and returns the result with the explanation. A spec that still has q.answer is marked locally. */
+  let checking = null, checkError = '';
+  async function mark(q, orig){
+    if(q.answer !== undefined) return { correct:orig === q.answer, answer:q.answer, explain:q.explain, ref:q.ref };
+    if(!CONFIG.checkUrl) throw new Error('Marking is not switched on.');
+    const res = await fetch(CONFIG.checkUrl, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ model:spec.id, question:q.id, chosen:orig, sid:sidHash }) });
+    const d = await res.json().catch(() => ({}));
+    if(!res.ok || typeof d.correct !== 'boolean') throw new Error(d.error || 'Could not check your answer.');
+    return d;
+  }
+  async function answer(displayIdx){
+    const q = qById(open?.qid); if(!q || attempt.answers[q.id] || checking) return;
+    const orig = attempt.order[q.id][displayIdx];
+    checking = { qid:q.id, di:displayIdx }; checkError = ''; refresh();
+    let m;
+    try{ m = await mark(q, orig); }
+    catch(err){ checking = null; checkError = (err.message || 'Could not check your answer.') + ' Check your connection and try again.'; refresh(); return; }
+    checking = null;
+    const correct = m.correct;
+    attempt.answers[q.id] = { chosen:orig, correct, answer:m.answer, explain:m.explain || '', ref:m.ref || '' };
     saveAttempt();
     research.log('answer', { question:q.id, hotspot:q.hotspot, chosen:orig, position:displayIdx, correct, rt:Math.round(performance.now() - shownAt), attempt:attempt.n });
     post({ type:'answer', attempt:attempt.n, hotspot:q.hotspot, question:q.id, chosen:q.options[orig], correct, answered:answeredCount(), score:correctCount(), total:Qs.length });
@@ -422,7 +440,7 @@ export function createApp({ spec, build }){
       lines.push(`The student is looking at hotspot "${h.title}": ${h.blurb}`);
       lines.push(`Current quiz question: ${q.q}`);
       lines.push('Options: ' + q.options.map((o, i) => `(${i + 1}) ${o}`).join(' '));
-      if(a) lines.push(`The student chose "${q.options[a.chosen]}", which is ${a.correct ? 'correct' : 'incorrect'}. The correct answer is "${q.options[q.answer]}". Teaching note: ${q.explain}`);
+      if(a) lines.push(`The student chose "${q.options[a.chosen]}", which is ${a.correct ? 'correct' : 'incorrect'}. The correct answer is "${q.options[a.answer]}". Teaching note: ${a.explain}`);
       else lines.push('The student has NOT answered this question yet. Do not reveal or confirm the correct option; give a hint or ask a guiding question instead.');
     }
     return lines.join('\n').slice(0, 3500);
@@ -600,12 +618,15 @@ export function createApp({ spec, build }){
     const opts = el('div', { class:'opts' });
     order.forEach((orig, di) => {
       let cls = 'opt';
-      if(a){ if(orig === q.answer) cls += ' right'; else if(orig === a.chosen) cls += ' wrong'; }
-      opts.append(el('button', { type:'button', class:cls, disabled:!!a, onclick:() => answer(di) }, el('span', { class:'k', text:'ABCD'[di] }), el('span', { text:q.options[orig] })));
+      if(a){ if(orig === a.answer) cls += ' right'; else if(orig === a.chosen) cls += ' wrong'; }
+      else if(checking?.qid === q.id && checking.di === di) cls += ' pending';
+      opts.append(el('button', { type:'button', class:cls, disabled:!!a || !!checking, onclick:() => answer(di) }, el('span', { class:'k', text:'ABCD'[di] }), el('span', { text:q.options[orig] })));
     });
     card.append(opts);
+    if(checking) card.append(el('p', { class:'checking', text:'Checking your answer…', role:'status' }));
+    else if(checkError && !a) card.append(el('div', { class:'err', role:'alert', text:checkError }));
     if(a){
-      card.append(el('div', { class:'fb ' + (a.correct ? 'ok' : 'bad') }, el('strong', { text:a.correct ? 'Correct' : 'Not quite' }), el('p', { text:q.explain }), el('div', { class:'ref', text:q.ref })));
+      card.append(el('div', { class:'fb ' + (a.correct ? 'ok' : 'bad') }, el('strong', { text:a.correct ? 'Correct' : 'Not quite' }), el('p', { text:a.explain }), el('div', { class:'ref', text:a.ref })));
       const more = Qs.some(x => x.hotspot === q.hotspot && !attempt.answers[x.id]) || complete();
       card.append(el('div', { class:'actions' },
         el('button', { type:'button', text:a.correct ? 'Ask the tutor more' : 'Ask the tutor why', onclick:() => { lastQid = q.id; const s = suggestions()[0]; toggleTutor(true); askTutor(s); } }),
@@ -842,17 +863,19 @@ export function createApp({ spec, build }){
     let y = p.para(q.q, 54, 140, 916, { size:36, weight:700, lh:1.25, maxLines:4 }) + 10;
     if(a){
       order.forEach((orig, di) => {
-        const right = orig === q.answer, chosen = orig === a.chosen;
+        const right = orig === a.answer, chosen = orig === a.chosen;
         if(!right && !chosen) return;
         p.button('x' + di, 54, y, 916, 84, `${right ? '✓ ' : '✗ '}${q.options[orig]}`, { fill:right ? '#ecf7ef' : '#fdf0e8', size:25, weight:600, stroke:right ? '#2f8a45' : '#c2410c' });
         y += 98;
       });
       p.text(a.correct ? 'Correct' : 'Not quite', 54, y + 34, { size:32, weight:800, color:a.correct ? '#2f8a45' : '#c2410c' });
-      p.para(q.explain, 54, y + 80, 916, { size:25, color:'#4b5679', lh:1.3, maxLines:7 });
+      p.para(a.explain, 54, y + 80, 916, { size:25, color:'#4b5679', lh:1.3, maxLines:7 });
       p.button('tutor', 54, 860, 440, 100, a.correct ? 'Ask the tutor more' : 'Ask the tutor why');
       p.button('next', 530, 860, 440, 100, complete() ? 'See my score' : 'Next', { fill:'#2b4fd8', color:'#fff' });
     } else {
-      order.forEach((orig, di) => { p.button('o' + di, 54, y, 916, 118, `${'ABCD'[di]}.  ${q.options[orig]}`, { size:26, weight:600 }); y += 132; });
+      order.forEach((orig, di) => { p.button('o' + di, 54, y, 916, 118, `${'ABCD'[di]}.  ${q.options[orig]}`, { size:26, weight:600, stroke:checking?.di === di ? '#2b4fd8' : undefined }); y += 132; });
+      if(checking) p.text('Checking your answer…', 54, 860, { size:26, weight:700, color:'#2b4fd8' });
+      else if(checkError) p.para(checkError, 54, 845, 916, { size:22, color:'#c2410c', maxLines:1 });
       p.button('hint', 54, 880, 440, 90, 'Hint from the tutor'); p.button('close', 530, 880, 440, 90, 'Close');
     }
   };
