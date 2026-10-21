@@ -62,193 +62,26 @@ export const spec = {
       blurb:'A fenced boundary with a staffed gate separates the arena from the campsite beyond. The whole festival site sits inside an 8 km perimeter fence.' }
   ],
 
+  /* Answers, explanations and references are not published: the Worker marks answers against the private key. */
   questions:[
-    { id:'p1', hotspot:'stage',
-      q:'The Pyramid Stage stands on the farm all year and has been rebuilt on the same site since 1971. Why do event scholars treat iconic stages like this as more than infrastructure?',
-      options:[
-        'They carry meanings and memories that build place identity and attract audiences beyond any single line-up',
-        'They reduce the licence fee the organiser pays',
-        'They remove the need for screens and delay towers',
-        'They are required by law for headline performers'
-      ],
-      answer:0,
-      explain:'Getz and Page argue that planned events create meanings for attendees, and that settings become part of that meaning. A stage seen at every edition, in decades of broadcasts and photos, becomes a symbol of the event itself: part of why people want to be there.',
-      ref:'Getz, D. and Page, S.J. (2016) Event Studies: Theory, Research and Policy for Planned Events. 3rd edn. London: Routledge.' },
-    { id:'p2', hotspot:'stage',
-      q:'When a field of strangers sings a headliner\'s chorus together, what would Turner (1969) call the shared feeling of equality and togetherness?',
-      options:['Communitas', 'Anomie', 'Alienation', 'Cognitive dissonance'],
-      answer:0,
-      explain:"Turner describes communitas as an intense, shared bond that emerges in liminal spaces set apart from everyday structure. Festivals are classic liminal settings. Durkheim's idea of collective effervescence describes a similar charge of shared emotion in crowds.",
-      ref:'Turner, V. (1969) The Ritual Process: Structure and Anti-Structure. Chicago: Aldine.' },
-
-    { id:'p3', hotspot:'barrier',
-      q:'Why is the front-of-stage barrier a strong, purpose-made demountable barrier with a staffed pit behind it, rather than simple fencing?',
-      options:[
-        'It must withstand crowd pressure, and the pit lets stewards and medics lift people out and treat them safely',
-        'It stops performers from seeing the audience',
-        'It creates extra space for VIP ticket holders',
-        'It keeps broadcast cameras out of the rain'
-      ],
-      answer:0,
-      explain:'Crowd loads at the front can be very high, so barriers are designed and installed to take them. The pit gives staff a safe working space to monitor the crowd, pass water, and extract anyone in distress over the barrier.',
-      ref:HSE },
-    { id:'p4', hotspot:'barrier',
-      q:'As standing density rises towards 5 or more people per square metre, what becomes the main danger in a crowd?',
-      options:[
-        'People can no longer move independently, forces build through the crowd, and falls, collapses and compressive asphyxia become possible',
-        'Dehydration, but nothing else',
-        'Hearing damage from the speakers',
-        'Pickpocketing'
-      ],
-      answer:0,
-      explain:'Still explains that at high densities individuals lose control of their own movement. Pressure waves pass through the crowd and a single fall can trigger a progressive collapse. Monitoring density near the barrier is therefore a core safety task.',
-      ref:STILL },
-
-    { id:'p5', hotspot:'crowd',
-      q:"Still's (2014) DIM-ICE model analyses crowd risk by combining three influences with three phases. Which is correct?",
-      options:[
-        'Design, Information and Management, across Ingress, Circulation and Egress',
-        'Density, Intensity and Motion, across Indoors, Courtyards and Exits',
-        'Duty, Insurance and Monitoring, across Incidents, Complaints and Evacuation',
-        'Demand, Income and Marketing, across Interest, Conversion and Engagement'
-      ],
-      answer:0,
-      explain:'DIM-ICE asks how the design of the space, the information people receive, and the way the crowd is managed affect each phase of an event: arriving, moving around, and leaving. It is a structured way to spot where risk concentrates.',
-      ref:STILL },
-    { id:'p6', hotspot:'crowd',
-      q:'A field holds 100,000 people. If its exits can pass a combined flow of 2,500 people per minute, roughly how long does a full egress take?',
-      options:['4 minutes', '25 minutes', '40 minutes', '400 minutes'],
-      answer:2,
-      explain:'Egress time is the number of people divided by the total flow rate: 100,000 ÷ 2,500 = 40 minutes. Planners size exit widths so that both the normal exit after a headliner and an emergency evacuation can be done within an acceptable time.',
-      ref:STILL },
-
-    { id:'p7', hotspot:'screens',
-      q:'How do delay towers and the big screens help crowd safety as well as the experience?',
-      options:[
-        'They make the middle and back of the field worth standing in, which spreads people out and reduces the pull towards the front',
-        'They count the number of people in the field',
-        'They act as a windbreak for the stage',
-        'They create extra bar space'
-      ],
-      answer:0,
-      explain:'If people can only see and hear well at the front, they push forward. Good sound and sightlines further back distribute the audience across the field, which lowers density at the barrier. Information shapes behaviour.',
-      ref:STILL },
-    { id:'p8', hotspot:'screens',
-      q:'If a set must be stopped because of a crowd problem, why do organisers show pre-agreed messages on the screens as well as making announcements over the PA?',
-      options:[
-        'In a loud, packed field many people cannot hear clearly, so the same message on several channels reaches more of the crowd',
-        'Screen messages are cheaper than staff',
-        'The law forbids spoken announcements',
-        'It keeps sponsors visible during the pause'
-      ],
-      answer:0,
-      explain:'Crowds respond better to clear, consistent information from a credible source. Planning scripted messages in advance, and using screens, PA and stewards together, avoids confusion when the show stops.',
-      ref:HSE },
-
-    { id:'p9', hotspot:'foh',
-      q:'A festival licensed under the Licensing Act 2003 must promote four licensing objectives. Which list is correct?',
-      options:[
-        'Prevention of crime and disorder, public safety, prevention of public nuisance, and protection of children from harm',
-        'Profit, public safety, sustainability, and customer satisfaction',
-        'Crowd control, fire safety, food hygiene, and noise reduction',
-        'Security, marketing, licensing, and ticketing'
-      ],
-      answer:0,
-      explain:"These four objectives frame what the licensing authority can require through licence conditions, such as capacity limits, noise curfews and safety plans. Every major operational decision on site has to sit within them.",
-      ref:'Licensing Act 2003, c. 17. London: The Stationery Office.' },
-    { id:'p10', hotspot:'foh',
-      q:'Large UK events often run event control with a Gold, Silver and Bronze command structure. What does the Silver level do?',
-      options:[
-        'Turns strategy into tactical plans and coordinates resources across the site',
-        'Sets the overall strategy and has final authority',
-        'Carries out tasks at the front line, such as stewarding a single gate',
-        'Handles artist liaison and hospitality'
-      ],
-      answer:0,
-      explain:'Gold is strategic, Silver is tactical and Bronze is operational. Using the same structure as the police and emergency services means everyone knows who decides what when an incident happens.',
-      ref:PURPLE },
-
-    { id:'p11', hotspot:'welfare',
-      q:'The festival provides more than 4,000 toilets, including over 2,000 long drops, over 1,300 compost loos and women\'s urinals near the Pyramid stage. Why is this a safety issue and not just a comfort issue?',
-      options:[
-        'Long queues and poor sanitation lead to people urinating elsewhere, spread infection and create crowd pinch points, so provision is planned in the safety plan',
-        'Toilets must legally be flushing at all outdoor events',
-        'It only matters for VIP areas',
-        'It is purely a matter of customer satisfaction scores'
-      ],
-      answer:0,
-      explain:'Sanitary provision affects hygiene, pollution of watercourses on the farm, and crowd flow, because queues spill into walkways. Guidance sets out how to plan numbers, placement, cleaning and accessible units.',
-      ref:"Glastonbury Festivals (2026) Toilets. Available at: https://www.glastonburyfestivals.co.uk/toilets (Accessed: 18 October 2026). " + PURPLE },
-    { id:'p12', hotspot:'welfare',
-      q:'Since 2019 the festival has not sold single-use plastic bottles and instead offers hundreds of free refill points. What operational risk must planners manage as a result?',
-      options:[
-        'Demand for free water peaks in hot weather, so refill points must be sized and spread to prevent queues and dehydration',
-        'Plastic waste rises sharply',
-        'Bars lose their alcohol licences',
-        'There is no operational risk'
-      ],
-      answer:0,
-      explain:'A sustainability decision moves the burden onto infrastructure. The water supplier reports demand rising up to six times during the event, so taps, pipework and placement must be planned, especially near busy fields.',
-      ref:"Bristol Water (2024) 'Serving up fresh water to over 200,000 music lovers', 27 June. Available at: https://bristolwater.co.uk/our-blogs/serving-up-fresh-water-to-music-lovers (Accessed: 18 October 2026)." },
-
-    { id:'p13', hotspot:'food',
-      q:"Food vans, bars and merchandise line the edges of the field rather than the middle. In Bitner's (1992) servicescape terms, this is mainly a decision about:",
-      options:['Ambient conditions', 'Spatial layout and functionality', 'Signs, symbols and artefacts', 'Price'],
-      answer:1,
-      explain:'Putting traders on the edges keeps sightlines clear, keeps queues off the main viewing area and puts service next to the trackway for deliveries. It shapes both the experience and the flow of people.',
-      ref:"Bitner, M.J. (1992) 'Servicescapes: the impact of physical surroundings on customers and employees', Journal of Marketing, 56(2), pp. 57–71." },
-    { id:'p14', hotspot:'food',
-      q:'Most food vans cook with LPG. Which control matters most in the event fire safety plan for this trading area?',
-      options:[
-        'Separation distances between units, secure cylinder storage, gas safety certificates and fire extinguishers at every unit',
-        'A sign asking customers not to smoke',
-        'Selling only cold food after dark',
-        'Moving all vans next to the stage'
-      ],
-      answer:0,
-      explain:'Under the Regulatory Reform (Fire Safety) Order 2005 the responsible person must assess and control fire risks. For traders this means checking gas installations, controlling cylinder storage, spacing units to stop fire spreading, and keeping firefighting equipment at hand.',
-      ref:'Regulatory Reform (Fire Safety) Order 2005, SI 2005/1541. London: The Stationery Office.' },
-
-    { id:'p15', hotspot:'access',
-      q:'An accessible viewing platform gives disabled visitors raised sightlines, space for a companion and an accessible toilet nearby. Which legal duty does this help an organiser meet?',
-      options:[
-        'The duty under the Equality Act 2010 to make reasonable adjustments for disabled people',
-        'The enhanced tier of Martyn\'s Law',
-        'The Licensing Act 2003 objective on public nuisance',
-        'Food hygiene regulations'
-      ],
-      answer:0,
-      explain:'Service providers must make reasonable adjustments so disabled people are not put at a substantial disadvantage. Platforms, accessible routes, accessible toilets and companion tickets are common adjustments at outdoor events.',
-      ref:'Equality Act 2010, c. 15. London: The Stationery Office.' },
-    { id:'p16', hotspot:'access',
-      q:'Why does the emergency plan need specific arrangements for people on the accessible platform?',
-      options:[
-        'Some may need assistance to evacuate, so assisted routes, trained staff and personal emergency evacuation plans are needed',
-        'They are exempt from evacuation',
-        'They must always leave first, whatever the incident',
-        'No special arrangements are needed outdoors'
-      ],
-      answer:0,
-      explain:'Fire safety law covers everyone on site. Government guidance on means of escape for disabled people stresses planning in advance how each person will get out, rather than improvising during an incident.',
-      ref:'HM Government (2007) Fire Safety Risk Assessment: Means of Escape for Disabled People. London: Department for Communities and Local Government.' },
-
-    { id:'p17', hotspot:'gate',
-      q:'Overcrowding from people climbing the fence led to the organiser being fined in 2000, and a much stronger perimeter fence went up in 2002. Which part of safety management did this most directly address?',
-      options:[
-        'Controlling ingress so the number on site stays within the licensed capacity (about 210,000 in 2025)',
-        'Improving the sound quality at the back of the field',
-        'Reducing the price of food',
-        'Increasing merchandise sales'
-      ],
-      answer:0,
-      explain:'Capacity is set by the licence and by safety planning; every design decision on site assumes it. An uncontrolled perimeter means the real crowd is unknown. After 2024, when some smaller stages became overcrowded, the festival also sold a few thousand fewer tickets for 2025.',
-      ref:AP },
-    { id:'p18', hotspot:'gate',
-      q:"The Terrorism (Protection of Premises) Act 2025, known as Martyn's Law, puts events with 800 or more attendees in the enhanced tier. Which body regulates it?",
-      options:['The Security Industry Authority', 'The Health and Safety Executive', 'Arts Council England', 'The local Safety Advisory Group'],
-      answer:0,
-      explain:'The Act received Royal Assent on 3 April 2025, with an implementation period of at least 24 months; statutory guidance followed in April 2026. Enhanced tier duty holders must put in place reasonably practicable public protection measures and keep documented records for the SIA. Penalties reach £18 million or 5% of worldwide revenue.',
-      ref:'Terrorism (Protection of Premises) Act 2025. London: The Stationery Office.' }
+    {"id":"p1","hotspot":"stage","q":"The Pyramid Stage stands on the farm all year and has been rebuilt on the same site since 1971. Why do event scholars treat iconic stages like this as more than infrastructure?","options":["They carry meanings and memories that build place identity beyond any one line-up","They lower the licence fee, because permanent structures need no new safety checks","They let organisers drop screens and delay towers by keeping crowds near the front","They are required by headline artists' contracts as a condition of booking the slot"]},
+    {"id":"p2","hotspot":"stage","q":"When a field of strangers sings a headliner's chorus together, what would Turner (1969) call the shared feeling of equality and togetherness?","options":["Communitas","Anomie","Alienation","Cognitive dissonance"]},
+    {"id":"p3","hotspot":"barrier","q":"Why is the front-of-stage barrier a strong, purpose-made demountable barrier with a staffed pit behind it, rather than simple fencing?","options":["It must withstand crowd pressure, and the pit lets staff lift out and treat people","It keeps the crowd far enough back to stop sound levels breaching the licence","It creates a protected zone for broadcast crews, VIP guests and the artists' families and friends","It deters stage invasions, which insurers treat as the main risk at the front"]},
+    {"id":"p4","hotspot":"barrier","q":"As standing density rises towards 5 or more people per square metre, what becomes the main danger in a crowd?","options":["People can't move freely, forces build, and falls and compressive asphyxia occur","Dehydration and heat exhaustion, because water cannot reach the front of the crowd","Hearing damage, because people are packed closest to the main PA speakers","Theft and pickpocketing, because people cannot see or protect their belongings"]},
+    {"id":"p5","hotspot":"crowd","q":"Still's (2014) DIM-ICE model analyses crowd risk by combining three influences with three phases. Which is correct?","options":["Design, Information and Management, across Ingress, Circulation and Egress","Density, Intensity and Motion, across Indoors, Courtyards and Exits","Duty, Insurance and Monitoring, across Incidents, Complaints and Evacuation","Demand, Income and Marketing, across Interest, Conversion and Engagement"]},
+    {"id":"p6","hotspot":"crowd","q":"A field holds 100,000 people. If its exits can pass a combined flow of 2,500 people per minute, roughly how long does a full egress take?","options":["4 minutes","25 minutes","40 minutes","400 minutes"]},
+    {"id":"p7","hotspot":"screens","q":"How do delay towers and the big screens help crowd safety as well as the experience?","options":["They make the back of the field worth standing in, spreading people out from the front","They count people in each zone, giving event control live density figures for every area of the field","They act as windbreaks that stop the main PA sound drifting off the site","They mark the emergency routes, so people know which way to leave in an incident"]},
+    {"id":"p8","hotspot":"screens","q":"If a set must be stopped because of a crowd problem, why do organisers show pre-agreed messages on the screens as well as making announcements over the PA?","options":["In a loud field many cannot hear, so one message on several channels reaches more people","Screen messages are legally binding, while spoken announcements are only advisory","Silence on the PA keeps the crowd calm, so screens are the safer single channel","Broadcasters need the message on screen so they can explain the pause to viewers watching at home"]},
+    {"id":"p9","hotspot":"foh","q":"A festival licensed under the Licensing Act 2003 must promote four licensing objectives. Which list is correct?","options":["Crime and disorder, public safety, public nuisance, and protection of children from harm","Crime and disorder, public safety, fire safety, and the protection of vulnerable adults from harm","Public safety, public health, prevention of public nuisance, and sustainability","Crime and disorder, crowd safety, noise reduction, and responsible alcohol sales"]},
+    {"id":"p10","hotspot":"foh","q":"Large UK events often run event control with a Gold, Silver and Bronze command structure. What does the Silver level do?","options":["Turns strategy into tactical plans and coordinates resources across the site","Sets the overall strategy for the event and holds final authority for decisions","Carries out tasks at the front line, such as running a single gate or the pit","Links with the emergency services only once a major incident has been declared"]},
+    {"id":"p11","hotspot":"welfare","q":"The festival provides more than 4,000 toilets, including over 2,000 long drops, over 1,300 compost loos and women's urinals near the Pyramid stage. Why is this a safety issue and not just a comfort issue?","options":["Queues and poor sanitation cause public urination, infection risk and pinch points","Toilets must be flushing by law at outdoor events, so long drops need a licence","Toilet numbers are fixed by the licence, so the safety plan simply records them","Only VIP areas are inspected, so in the general field it is a comfort issue only"]},
+    {"id":"p12","hotspot":"welfare","q":"Since 2019 the festival has not sold single-use plastic bottles and instead offers hundreds of free refill points. What operational risk must planners manage as a result?","options":["Free water demand peaks in heat, so refill points must be sized to avoid queues","Plastic waste rises, because people bring in more of their own bottled drinks","Bars lose income, so they raise drink prices and push people towards dehydration","Refill water must be tested daily, so points close for long periods during the day"]},
+    {"id":"p13","hotspot":"food","q":"Food vans, bars and merchandise line the edges of the field rather than the middle. In Bitner's (1992) servicescape terms, this is mainly a decision about:","options":["Ambient conditions","Spatial layout and functionality","Signs, symbols and artefacts","Price"]},
+    {"id":"p14","hotspot":"food","q":"Most food vans cook with LPG. Which control matters most in the event fire safety plan for this trading area?","options":["Separation distances, secure cylinder storage, gas certificates and extinguishers","No-smoking signs at each unit and a ban on cooking during headline sets","Selling only cold food after dark, when fire is hardest to see and fight","Grouping all the vans together beside the stage, where the site's fire crews are based"]},
+    {"id":"p15","hotspot":"access","q":"An accessible viewing platform gives disabled visitors raised sightlines, space for a companion and an accessible toilet nearby. Which legal duty does this help an organiser meet?","options":["The Equality Act 2010 duty to make reasonable adjustments for disabled people","The Martyn's Law duty to protect people who cannot easily leave a venue","The Licensing Act 2003 objective of public safety for vulnerable visitors","The Health and Safety at Work Act duty to provide safe places of work"]},
+    {"id":"p16","hotspot":"access","q":"Why does the emergency plan need specific arrangements for people on the accessible platform?","options":["Some need help to evacuate, so assisted routes, trained staff and PEEPs are needed","They are exempt, as the raised platform is treated as a place of safety","They must always leave first, before anyone else, whatever the incident","Outdoor sites have exits on every side, so no special arrangements are ever needed for anyone"]},
+    {"id":"p17","hotspot":"gate","q":"Overcrowding from people climbing the fence led to the organiser being fined in 2000, and a much stronger perimeter fence went up in 2002. Which part of safety management did this most directly address?","options":["Controlling ingress so numbers on site stay within the licensed capacity","Controlling egress so the field can empty faster after the headline act","Controlling circulation so crowds flow better between the different stages","Controlling access to the backstage areas used by artists and their crews"]},
+    {"id":"p18","hotspot":"gate","q":"The Terrorism (Protection of Premises) Act 2025, known as Martyn's Law, puts events with 800 or more attendees in the enhanced tier. Which body regulates it?","options":["The Security Industry Authority","The Health and Safety Executive","Arts Council England","The local Safety Advisory Group"]}
   ],
 
   scenarios:[

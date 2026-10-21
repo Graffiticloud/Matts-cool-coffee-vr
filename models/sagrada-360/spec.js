@@ -33,157 +33,22 @@ export const spec = {
       blurb:'A visitor route sign marks the way out. Ticket income now pays for the construction itself, while the neighbourhood around the basilica lives with the crowds.' }
   ],
 
+  /* Answers, explanations and references are not published: the Worker marks answers against the private key. */
   questions:[
-    { id:'s1', hotspot:'history',
-      q:'Construction began in 1882 under another architect. Why is Gaudí so closely identified with a building he neither started nor finished?',
-      options:[
-        'He took over in 1883, redesigned it far more ambitiously and devoted the rest of his life to it, so the vision is his',
-        'He laid the first stone and completed the whole Nativity façade before 1900',
-        'He drew the original Neo-Gothic plans in 1882',
-        'He paid for the entire project from his own fortune'
-      ],
-      answer:0,
-      explain:"Work began in 1882 to a Neo-Gothic design by Francisco de Paula del Villar. Gaudí took over in 1883, transformed the project and worked on it until his death in 1926, when only a fraction was built. His name, life story and style are now the core of the basilica's identity and its appeal to visitors.",
-      ref:UNESCO },
-    { id:'s2', hotspot:'history',
-      q:"In 1936, during the Spanish Civil War, Gaudí's workshop was set on fire and many plans and plaster models were destroyed. Why does this matter for the basilica as heritage?",
-      options:[
-        'Later architects had to rebuild his intentions from fragments and interpretation, so critics debate how much of the finished building is truly Gaudí',
-        'It made no difference, because Gaudí had left complete drawings for every part',
-        'It forced the basilica to be redesigned in a fully Neo-Gothic style',
-        'It led UNESCO to remove the basilica from the World Heritage List'
-      ],
-      answer:0,
-      explain:"Much of what stands today was built decades after Gaudí's death, from surviving fragments, photographs and interpretation. That is why UNESCO's 2005 inscription covers only the Nativity façade and the crypt, the parts built in his lifetime, and why the rest is sometimes debated as 'authentic Gaudí'.",
-      ref:UNESCO },
-
-    { id:'s3', hotspot:'tower',
-      q:'In February 2026 the cross was placed on the Tower of Jesus Christ, taking the basilica to 172.5 metres. What did this make the Sagrada Família?',
-      options:[
-        "The tallest church in the world, overtaking Germany's Ulm Minster",
-        'The tallest building of any kind in Spain',
-        "Fully complete, with every tower in Gaudí's plan built",
-        'Taller than any building permitted in Barcelona since 1882'
-      ],
-      answer:0,
-      explain:'The topping out made it the tallest church in the world. It is not finished: the Glory façade is still at an early stage, four of the eighteen planned towers remain to be built, and recent forecasts put completion of the structures around 2034.',
-      ref:TRAVEL },
-    { id:'s4', hotspot:'tower',
-      q:"The Tower of Jesus Christ was blessed on 10 June 2026, exactly 100 years after Gaudí's death. Using Butler's (1980) tourism area life cycle, what does timing a milestone like this help a mature attraction to do?",
-      options:[
-        'Rejuvenate interest and media coverage, so the attraction avoids stagnation and decline',
-        'Move back to the exploration stage with very few visitors',
-        'Reduce visitor numbers to the level of the involvement stage',
-        'Remove the need for any further investment'
-      ],
-      answer:0,
-      explain:'Butler argues destinations move through exploration, involvement, development, consolidation and stagnation, after which they either decline or rejuvenate. A centenary and a record-breaking tower give a nearly 5-million-visitor attraction fresh reasons to come, and to come back.',
-      ref:"Butler, R.W. (1980) 'The concept of a tourist area cycle of evolution: implications for management of resources', Canadian Geographer, 24(1), pp. 5–12." },
-
-    { id:'s5', hotspot:'fruit',
-      q:"MacCannell (1973) argued that tourists seek authenticity but are often shown a 'staged' version of it. Which part of a Sagrada Família visit best fits his idea of a staged back region?",
-      options:[
-        'Watching the model-making workshop and construction displays, presented as a behind-the-scenes look at how the basilica is made',
-        'Paying for a ticket online',
-        'Passing through the security check',
-        'Reading the city tourist tax notice in a hotel'
-      ],
-      answer:0,
-      explain:"MacCannell builds on Goffman's front and back regions. Tourists want to see 'real' backstage life, so attractions stage access to it. Displaying working models and construction as part of the visit turns the work itself into a spectacle.",
-      ref:"MacCannell, D. (1973) 'Staged authenticity: arrangements of social space in tourist settings', American Journal of Sociology, 79(3), pp. 589–603." },
-    { id:'s6', hotspot:'fruit',
-      q:'The fruit pinnacles and towers are reproduced on fridge magnets, posters and phone cases sold all over the city. Which concept best describes heritage turned into products for sale?',
-      options:['Disintermediation', 'Commoditisation', 'Gentrification', 'Vertical integration'],
-      answer:1,
-      explain:"Cohen examines how tourism turns cultural products into commodities valued for exchange. He argues commoditisation does not simply destroy meaning: new meanings can emerge for both hosts and visitors.",
-      ref:"Cohen, E. (1988) 'Authenticity and commoditization in tourism', Annals of Tourism Research, 15(3), pp. 371–386." },
-
-    { id:'s7', hotspot:'city',
-      q:"Doxey's (1975) Irridex suggests residents' attitudes change as tourism grows. In what order do the stages run?",
-      options:[
-        'Euphoria, apathy, annoyance, antagonism',
-        'Apathy, euphoria, antagonism, annoyance',
-        'Annoyance, euphoria, apathy, antagonism',
-        'Euphoria, annoyance, apathy, antagonism'
-      ],
-      answer:0,
-      explain:"Residents move from welcoming visitors, to taking them for granted, to irritation, to open hostility. Barcelona's 2024 protests, with banners saying 'Tourists go home' and water pistols aimed at visitors, are often read as the antagonism stage.",
-      ref:"Doxey, G.V. (1975) 'A causation theory of visitor-resident irritants: methodology and research inferences', in The Impact of Tourism: Sixth Annual Conference Proceedings of the Travel Research Association. San Diego, CA: Travel Research Association, pp. 195–198." },
-    { id:'s8', hotspot:'city',
-      q:'In April 2026 Barcelona nearly doubled its hotel tourist tax and moved towards much higher charges on short-stay cruise passengers. In economic terms, what is a tax like this mainly designed to do?',
-      options:[
-        'Make visitors pay for external costs they impose on residents, such as crowding and pressure on public services',
-        'Increase the basilica’s own ticket income',
-        'Attract more day-trippers into the city',
-        'Pay for a new national airport'
-      ],
-      answer:0,
-      explain:"This follows Pigou's logic of taxing negative externalities: costs that fall on third parties rather than on the buyer. Short-stay cruise visitors add crowds at sites like the Sagrada Família while spending little locally, which is why they are targeted.",
-      ref:'Pigou, A.C. (1920) The Economics of Welfare. London: Macmillan.' },
-
-    { id:'s9', hotspot:'gaze',
-      q:'Nearly everyone on this walkway is photographing the view. How do Urry and Larsen (2011) describe the tourist gaze?',
-      options:[
-        'As socially organised: shaped by images circulating in media and social networks, which visitors then set out to reproduce',
-        'As a purely individual and spontaneous way of looking',
-        'As a legal right to photograph heritage sites',
-        "As the attraction's security and surveillance system"
-      ],
-      answer:0,
-      explain:"The gaze is learned. Visitors arrive knowing what the Sagrada Família 'should' look like from images they have already seen, photograph those same views, and feed them back into the circle of images that draws the next visitors.",
-      ref:'Urry, J. and Larsen, J. (2011) The Tourist Gaze 3.0. London: Sage.' },
-    { id:'s10', hotspot:'gaze',
-      q:"Visitors' photos and posts reach millions of people at no cost to the basilica. Which term fits best?",
-      options:['Paid media', 'Owned media', 'User-generated content acting as earned media', 'Below-the-line sales promotion'],
-      answer:2,
-      explain:'Mangold and Faulds describe social media as a hybrid part of the promotion mix, in which customers talk to one another about a brand. Here the visitors do the promotion, and the basilica neither pays for it nor fully controls it.',
-      ref:"Mangold, W.G. and Faulds, D.J. (2009) 'Social media: the new hybrid element of the promotion mix', Business Horizons, 52(4), pp. 357–365." },
-
-    { id:'s11', hotspot:'access',
-      q:'Tickets cost roughly €26 to €40, are sold for timed entry slots, and tower access is an add-on. What would Kimes (1989) call this approach?',
-      options:[
-        'Yield management for a capacity-constrained service',
-        'Cost-plus pricing',
-        'Penetration pricing',
-        'Loss-leader pricing'
-      ],
-      answer:0,
-      explain:'Kimes shows yield management suits services with fixed capacity, perishable inventory and demand that can be segmented. A time slot on a narrow tower walkway cannot be stored, so selling slots in advance at different prices maximises revenue and controls crowding.',
-      ref:"Kimes, S.E. (1989) 'Yield management: a tool for capacity-constrained service firms', Journal of Operations Management, 8(4), pp. 348–363." },
-    { id:'s12', hotspot:'access',
-      q:"Timed slots, audio guides and fast lifts let a visitor 'do' the basilica in a couple of hours before moving on. Which dimension of Rosa's (2013) social acceleration does this best show?",
-      options:[
-        'The acceleration of the pace of life: more experiences packed into less time',
-        'The acceleration of social change',
-        'Only technological acceleration, with no social effect',
-        'A deceleration of tourism'
-      ],
-      answer:0,
-      explain:'Rosa defines the pace of life by the number of actions or experiences per unit of time. Short city breaks that tick off icons in timed slots are a clear example, and the technology (online booking, lifts) is what makes that compression possible.',
-      ref:'Rosa, H. (2013) Social Acceleration: A New Theory of Modernity. New York: Columbia University Press.' },
-
-    { id:'s13', hotspot:'money',
-      q:'In 2025 the basilica took about €134.5 million, around 97% of it from visitors, and spent just over half of its costs on construction. What kind of business model is this?',
-      options:[
-        'A visitor-funded model, in which tourism revenue pays for building the attraction itself',
-        'A state-funded model paid for through national taxes',
-        'A franchise model licensed to tour operators',
-        'An advertising-funded model'
-      ],
-      answer:0,
-      explain:"Once funded mainly by donations, the 'expiatory temple' is now financed almost entirely by its visitors. About 51.7% of its spending went on construction and 2.3% to an agreement with Barcelona City Council to offset the effects of tourism on the area.",
-      ref:ARA },
-    { id:'s14', hotspot:'money',
-      q:"The planned monumental staircase could mean demolishing just over 200 homes, down from earlier estimates of about 1,000. Using Freeman's (1984) stakeholder approach, what is the core management problem?",
-      options:[
-        'Balancing the legitimate claims of groups with very different stakes, such as the temple, the City Council, residents and visitors',
-        'Finding the cheapest building contractor',
-        'Maximising ticket revenue whatever residents think',
-        'Choosing a stone for the steps'
-      ],
-      answer:0,
-      explain:'Freeman defines stakeholders as any group that can affect or is affected by an organisation. Here the temple wants to complete Gaudí’s design, residents want to keep their homes in the area, and the council must weigh housing rights against a global icon. No agreement had been reached by mid-2026.',
-      ref:'Freeman, R.E. (1984) Strategic Management: A Stakeholder Approach. Boston, MA: Pitman.' }
+    {"id":"s1","hotspot":"history","q":"Construction began in 1882 under another architect. Why is Gaudí so closely identified with a building he neither started nor finished?","options":["He took over in 1883, made it far more ambitious and gave it the rest of his life","He took over in 1883 and completed the main nave and the Glory façade before his death in 1926","He drew the original Neo-Gothic plans in 1882 that later architects still follow","He paid for most of the early works from his own fortune and his patrons' gifts"]},
+    {"id":"s2","hotspot":"history","q":"In 1936, during the Spanish Civil War, Gaudí's workshop was set on fire and many plans and plaster models were destroyed. Why does this matter for the basilica as heritage?","options":["Later architects rebuilt his intentions from fragments, so critics debate how much is Gaudí","Little was lost, because complete copies of every drawing had been kept elsewhere","Work had to switch to a Neo-Gothic design, as only the original 1882 plans survived","UNESCO removed the unfinished parts from the World Heritage listing until they are certified authentic"]},
+    {"id":"s3","hotspot":"tower","q":"In February 2026 the cross was placed on the Tower of Jesus Christ, taking the basilica to 172.5 metres. What did this make the Sagrada Família?","options":["The tallest church in the world, overtaking Germany's Ulm Minster","The tallest building of any kind in Spain, overtaking Madrid's towers","Fully complete, with all eighteen towers in Gaudí's plan now built","Taller than Montjuïc, the height Gaudí said no building should exceed"]},
+    {"id":"s4","hotspot":"tower","q":"The Tower of Jesus Christ was blessed on 10 June 2026, exactly 100 years after Gaudí's death. Using Butler's (1980) tourism area life cycle, what does timing a milestone like this help a mature attraction to do?","options":["Rejuvenate interest and media coverage, so the attraction avoids stagnation","Signal the start of the decline stage, so investors can plan a managed exit","Return the site to the exploration stage, with only specialist visitors","Prove that carrying capacity no longer limits growth at a mature attraction"]},
+    {"id":"s5","hotspot":"fruit","q":"MacCannell (1973) argued that tourists seek authenticity but are often shown a 'staged' version of it. Which part of a Sagrada Família visit best fits his idea of a staged back region?","options":["Watching the model-making workshop, presented as a look behind the scenes","Queueing at the security check before a timed entry slot opens","Buying a fridge magnet of the fruit pinnacles in the basilica's shop","Hearing Mass in the crypt alongside local parishioners on a Sunday morning"]},
+    {"id":"s6","hotspot":"fruit","q":"The fruit pinnacles and towers are reproduced on fridge magnets, posters and phone cases sold all over the city. Which concept best describes heritage turned into products for sale?","options":["Disintermediation","Commoditisation","Gentrification","Vertical integration"]},
+    {"id":"s7","hotspot":"city","q":"Doxey's (1975) Irridex suggests residents' attitudes change as tourism grows. In what order do the stages run?","options":["Euphoria, apathy, annoyance, antagonism","Apathy, euphoria, antagonism, annoyance","Annoyance, euphoria, apathy, antagonism","Euphoria, annoyance, apathy, antagonism"]},
+    {"id":"s8","hotspot":"city","q":"In April 2026 Barcelona nearly doubled its hotel tourist tax and moved towards much higher charges on short-stay cruise passengers. In economic terms, what is a tax like this mainly designed to do?","options":["Make visitors pay the external costs they impose on residents and services","Raise the basilica's own ticket income so it can finish the remaining towers sooner","Shift demand towards day-trippers, who spend more per hour than overnight guests","Lower hotel prices by encouraging more competition between city-centre hotels"]},
+    {"id":"s9","hotspot":"gaze","q":"Nearly everyone on this walkway is photographing the view. How do Urry and Larsen (2011) describe the tourist gaze?","options":["As socially organised: shaped by circulating images that visitors then set out to reproduce","As individual and spontaneous: each visitor freely decides for themselves what is worth looking at","As a legal right to photograph heritage, regulated by each attraction's image policy","As surveillance: the way an attraction's staff watch and manage visitors' behaviour"]},
+    {"id":"s10","hotspot":"gaze","q":"Visitors' photos and posts reach millions of people at no cost to the basilica. Which term fits best?","options":["Paid social media advertising","Owned media channels","Earned media from user-generated content","Below-the-line sales promotion by the basilica"]},
+    {"id":"s11","hotspot":"access","q":"Tickets cost roughly €26 to €40, are sold for timed entry slots, and tower access is an add-on. What would Kimes (1989) call this approach?","options":["Yield management for a capacity-constrained service","Cost-plus pricing based on construction and running costs","Penetration pricing to build market share","Loss-leader pricing to drive shop sales"]},
+    {"id":"s12","hotspot":"access","q":"Timed slots, audio guides and fast lifts let a visitor 'do' the basilica in a couple of hours before moving on. Which dimension of Rosa's (2013) social acceleration does this best show?","options":["Acceleration of the pace of life: more experiences packed into less time","Acceleration of social change: institutions and habits changing faster","Technological acceleration alone: faster lifts and ticketing systems","Deceleration: slow tourism replacing rushed sightseeing in the city"]},
+    {"id":"s13","hotspot":"money","q":"In 2025 the basilica took about €134.5 million, around 97% of it from visitors, and spent just over half of its costs on construction. What kind of business model is this?","options":["A visitor-funded model: tourism revenue pays to build the attraction","A state-funded model: national taxes pay to build the attraction","A church-funded model: Vatican grants pay to build the attraction","A donor-funded model: private patrons pay to build the attraction"]},
+    {"id":"s14","hotspot":"money","q":"The planned monumental staircase could mean demolishing just over 200 homes, down from earlier estimates of about 1,000. Using Freeman's (1984) stakeholder approach, what is the core management problem?","options":["Balancing legitimate claims of groups with very different stakes","Maximising value for the foundation that owns and runs the basilica","Choosing the contractor that can build the staircase at the lowest cost","Following Gaudí's original plan exactly, whatever the cost to residents"]}
   ],
 
   tutor:{
