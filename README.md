@@ -50,6 +50,17 @@ ops/
 - **Guide intro (Synthetic Matt)**: `intro:{ src:'./intro.mp4', key:0x00ff00, similarity, smoothness, xr:{ pos, height } }`. Pure green background; keyed on the page and in the headset. Plays once per browser session; replay from the HUD.
 - **Research capture**: only with `?study=CODE` on the address and the participant's consent; audio is a separate tick. Needs ethics approval before use with students.
 
+## Answer keys (kept off the public site)
+
+The repo is public, so specs never contain answers. Author new questions with `answer`, `explain` and `ref` as before, then run:
+
+1. `node ops/keys/split.mjs <model-id>`: strips the keys from `spec.js` and writes them to `ops/keys/keys.local.json` (git-ignored).
+2. Add the rows to the **Keys** tab of the private score Sheet (model, question, answer index, explanation, reference).
+3. `node ops/quizcheck.mjs`: warns if the right answer is still the longest option.
+4. `node ops/stamp.mjs` before every commit, so browsers load the new files straight away.
+
+The Worker's `/check` route marks each answer against the Keys tab (cached for five minutes) and returns the explanation. A student only sees the answer after answering.
+
 ## Hosting and data
 
 | What | Where |
