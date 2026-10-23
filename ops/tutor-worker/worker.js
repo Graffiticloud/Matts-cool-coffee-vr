@@ -2,6 +2,7 @@
 
    Routes
      POST /            tutor (also POST /tutor)
+     POST /judge       records one card-sort judgement and returns the cohort's spread for that card (KV LIMITS)
      POST /check       marks one quiz answer against the private answer key (held in the Google Sheet, served by the Apps Script)
      POST /log         research events batch  -> R2 DATA: research/<date>/<session>/events-<time>.json
      POST /audio       one audio segment       -> R2 DATA: research/<date>/<session>/audio-<seq>.webm (+ transcript json)
@@ -96,6 +97,22 @@ export default {
       const k = keys?.[model]?.[qid];
       if(!k) return reply(404, { error:'This question is not in the answer key yet.' });
       return reply(200, { correct:chosen === k.answer, answer:k.answer, explain:k.explain || '', ref:k.ref || '' });
+    }
+
+    /* ---------- card sort: cohort spread ---------- */
+    if(url.pathname === '/judge'){
+      let b; try{ b = await request.json(); }catch{ return reply(400, { error:'Not valid JSON.' }); }
+      if(!env.LIMITS) return reply(500, { error:'The cohort view is not set up.' });
+      const model = safe(b.model), card = safe(b.card), zone = safe(b.zone), horizon = safe(b.horizon), pref = safe(b.pref), sid = String(b.sid || '').slice(0, 80);
+      const key = `j:${model}:${card}`;
+      let c; try{ c = JSON.parse(await env.LIMITS.get(key) || '{}'); }catch{ c = {}; }
+      c.zones = c.zones || {}; c.horizons = c.horizons || {}; c.prefs = c.prefs || {}; c.n = c.n || 0;
+      const mineKey = `jd:${model}:${card}:${sid}`, prev = sid ? await env.LIMITS.get(mineKey) : null;
+      if(prev){ try{ const p = JSON.parse(prev); for(const [k, v] of [['zones', p.zone], ['horizons', p.horizon], ['prefs', p.pref]]) c[k][v] = Math.max(0, (c[k][v] || 0) - 1); c.n = Math.max(0, c.n - 1); }catch{} }
+      c.zones[zone] = (c.zones[zone] || 0) + 1; c.horizons[horizon] = (c.horizons[horizon] || 0) + 1; c.prefs[pref] = (c.prefs[pref] || 0) + 1; c.n++;
+      await env.LIMITS.put(key, JSON.stringify(c));
+      if(sid) await env.LIMITS.put(mineKey, JSON.stringify({ zone, horizon, pref }), { expirationTtl:60 * 60 * 24 * 365 });
+      return reply(200, { counts:c });
     }
 
     /* ---------- research events ---------- */

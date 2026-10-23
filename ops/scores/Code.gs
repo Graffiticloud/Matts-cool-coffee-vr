@@ -13,7 +13,8 @@
 const SHEET_ID = '1f8t2lvh2U-FaR6K2pvGdkbYqXa0ztMIdNieCxXRAxbc';
 const book_ = () => SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(SHEET_ID);
 
-const ANSWERS = 'Answers', ATTEMPTS = 'Attempts', DECISIONS = 'Decisions', SUMMARY = 'Summary', KEYS = 'Keys';
+const ANSWERS = 'Answers', ATTEMPTS = 'Attempts', DECISIONS = 'Decisions', SUMMARY = 'Summary', KEYS = 'Keys', JUDGEMENTS = 'Judgements';
+const JUDGE_HEAD = ['Received', 'Student number', 'Model', 'Module', 'Card', 'Statement', 'Zone', 'Horizon', 'Preference', 'Seconds', 'Typical reading'];
 const DECISION_HEAD = ['Received', 'Student number', 'Model', 'Module', 'Scenario', 'Step', 'Choice', 'Best choice', 'Seconds to decide', 'Path so far'];
 const SID_RE = /^[A-Z]?\d{6,9}$/;
 
@@ -32,6 +33,9 @@ function doPost(e){
     } else if(d.type === 'complete'){
       sheet_(ss, ATTEMPTS, ['Received', 'Student number', 'Model', 'Module', 'Attempt', 'Score', 'Total', 'Percent', 'Time taken (s)'])
         .appendRow([ts, sid, clip_(d.model), clip_(d.module), num_(d.attempt), num_(d.score), num_(d.total), num_(d.percent), num_(d.seconds)]);
+    } else if(d.type === 'judgement'){
+      sheet_(ss, JUDGEMENTS, JUDGE_HEAD)
+        .appendRow([ts, sid, clip_(d.model), clip_(d.module), clip_(d.card), clip_(d.text, 300), clip_(d.zone), clip_(d.horizon), clip_(d.pref), num_(d.seconds), clip_(d.reading)]);
     } else if(d.type === 'decision'){
       sheet_(ss, DECISIONS, DECISION_HEAD)
         .appendRow([ts, sid, clip_(d.model), clip_(d.module), clip_(d.scenario), clip_(d.step), clip_(d.choice, 300), d.best === true, num_(d.seconds), clip_(d.path, 300)]);
@@ -68,6 +72,7 @@ function setup(){
   sheet_(ss, ANSWERS, ['Received', 'Student number', 'Model', 'Module', 'Attempt', 'Hotspot', 'Question', 'Chosen answer', 'Correct', 'Answered so far', 'Score so far', 'Total']);
   sheet_(ss, ATTEMPTS, ['Received', 'Student number', 'Model', 'Module', 'Attempt', 'Score', 'Total', 'Percent', 'Time taken (s)']);
   sheet_(ss, DECISIONS, DECISION_HEAD);
+  sheet_(ss, JUDGEMENTS, JUDGE_HEAD);
   const s = ss.getSheetByName(SUMMARY) || ss.insertSheet(SUMMARY);
   s.clear();
   s.getRange('A1').setFormula("=IFERROR(QUERY(Attempts!B:H,\"select B, C, max(H), count(H), avg(H) where B is not null group by B, C order by B label B 'Student number', C 'Model', max(H) 'Best %', count(H) 'Attempts', avg(H) 'Average %'\",1),\"No completed attempts yet\")");
