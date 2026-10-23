@@ -92,6 +92,12 @@ input[type=text]{font:500 17px/1 var(--mono);padding:13px 14px;border-radius:14p
 .path{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
 .path li{font:500 14px/1.4 var(--display);padding:9px 12px;border-radius:12px;background:#f3f0e9}
 .path li.ok{background:#ecf7ef}.path li.bad{background:#fdf0e8}
+.zbtns{display:flex;flex-wrap:wrap;gap:6px}.zbtns button{font:600 13px/1.1 var(--display);padding:8px 11px;background:#f3f0e9}
+.zbtns button.on{background:var(--royal);color:#fff}
+.here{font:700 14px/1.3 var(--mono);color:var(--royal);padding:8px 12px;border-radius:12px;background:rgba(43,79,216,.08)}
+.bars{display:flex;flex-direction:column;gap:5px}.bars .b{display:grid;grid-template-columns:120px 1fr 34px;align-items:center;gap:8px;font:600 13px/1.2 var(--display)}
+.bars .t{height:12px;border-radius:6px;background:rgba(20,32,74,.08);overflow:hidden}.bars .t i{display:block;height:100%;border-radius:6px}
+.bars .mine{color:var(--royal)}.cardtxt{font:700 19px/1.35 var(--display);color:var(--ink);padding:14px 16px;border-radius:16px;background:#fff7d6;border:2px solid #f6c42a}
 .presenter{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));width:min(300px,38vw);z-index:3;display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
 .presenter canvas{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 30px rgba(20,32,74,.35))}
 .presenter .btns{pointer-events:auto}
@@ -267,10 +273,11 @@ export function createApp({ spec, build }){
   const hotspotDone = hid => {
     const h = hById(hid);
     if(h?.scenario) return !!scenDone[h.scenario];
+    if(h?.sorter) return !!SORT && SORT.cards.every(c => sortDone[c.id]);
     const qs = qsFor(hid);
     return qs.length ? qs.every(q => attempt.answers[q.id]) : !!watched[hid];
   };
-  const hotspotStarted = hid => qsFor(hid).some(q => attempt.answers[q.id]) || !!watched[hid];
+  const hotspotStarted = hid => qsFor(hid).some(q => attempt.answers[q.id]) || !!watched[hid] || (!!hById(hid)?.sorter && Object.keys(store.get('sort', {})).length > 0);
   const complete = () => answeredCount() === Qs.length;
 
   function post(payload){
@@ -290,6 +297,7 @@ export function createApp({ spec, build }){
     const h = hById(hid); if(!h) return;
     noteOpen(hid);
     if(h.scenario){ openScenario(h.scenario); return; }
+    if(h.sorter){ openSort(); return; }
     if(h.video && !skipVideo && (!watched[hid] || !qsFor(hid).some(q => !attempt.answers[q.id]))){ openVideo(hid); return; }
     const qs = qsFor(hid);
     if(!qs.length){ open = null; noteOpen(null); refresh(); return; }
@@ -422,6 +430,109 @@ export function createApp({ spec, build }){
     research.log('scenario_close', { scenario:scen.s.id, step:scen.stepId });
     scen = null; effect('reset'); noteOpen(null); refresh();
   }
+  /* ---------- card sort: students place statements inside a shape (the futures cone) and say whether they want them ---------- */
+  const SORT = spec.sorter || null;
+  let sort = null;                                   // { i, phase:'place'|'prefer'|'feedback'|'done', place, pref, startedAt, counts, hover }
+  let sortDone = store.get('sort', {});              // cardId -> { zone, horizon, pref, p:[x,y,z] }
+  const sortGroup = new THREE.Group(); world.add(sortGroup);
+  const zoneOf = id => [...(SORT?.cone.zones || []), SORT?.cone.beyond].find(z => z && z.id === id);
+  const horizonOf = id => SORT?.cone.horizons.find(h => h.id === id);
+  const prefLabel = { yes:'preferable', neutral:'neutral', no:'un-preferred' };
+  function classify(p){
+    const C = SORT.cone, a = C.apex, t = p.x - a[0];
+    const r = Math.hypot(p.y - a[1], (p.z - a[2]) / (C.depth || 1));
+    const rn = r * C.length / Math.max(t, 0.06 * C.length);
+    const zone = (C.zones.find(z => rn <= z.r) || C.beyond).id;
+    const f = clamp(t / C.length, 0, 1);
+    const horizon = (C.horizons.find(h => f <= h.to) || C.horizons[C.horizons.length - 1]).id;
+    return { zone, horizon, inside:t > 0 && t <= C.length * 1.08 };
+  }
+  /* a point in the zone and horizon chosen with buttons instead of pointing */
+  function pointFor(zone, horizon){
+    const C = SORT.cone, zi = C.zones.findIndex(z => z.id === zone), hi = C.horizons.findIndex(h => h.id === horizon);
+    const inner = zi > 0 ? C.zones[zi - 1].r : 0, outer = zi >= 0 ? C.zones[zi].r : C.zones[C.zones.length - 1].r * 1.15;
+    const f = ((hi > 0 ? C.horizons[hi - 1].to : 0) + C.horizons[hi].to) / 2, t = f * C.length;
+    const rn = zi >= 0 ? (inner + outer) / 2 : outer, ang = (Object.keys(sortDone).length * 2.39) % TAU;
+    return new THREE.Vector3(C.apex[0] + t, C.apex[1] + Math.cos(ang) * rn * t / C.length, C.apex[2] + Math.sin(ang) * rn * t / C.length * (C.depth || 1));
+  }
+  const _inv = new THREE.Matrix4();
+  function rayToCone(origin, dir, eye){
+    world.updateMatrixWorld(); _inv.copy(world.matrixWorld).invert();
+    const o = origin.clone().applyMatrix4(_inv), d = origin.clone().add(dir).applyMatrix4(_inv).sub(o).normalize();
+    const a = new THREE.Vector3(...SORT.cone.apex), e = eye.clone().applyMatrix4(_inv);
+    const n = new THREE.Vector3(0, e.y - a.y, e.z - a.z); if(n.lengthSq() < 1e-6) n.set(0, 0, 1); n.normalize();
+    const den = d.dot(n); if(Math.abs(den) < 1e-5) return null;
+    const k = a.clone().sub(o).dot(n) / den; return k > 0 ? o.add(d.multiplyScalar(k)) : null;
+  }
+  function chip(label, color, big){
+    const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d');
+    x.beginPath(); x.arc(48, 48, 40, 0, TAU); x.fillStyle = '#ffffff'; x.fill();
+    x.beginPath(); x.arc(48, 48, 32, 0, TAU); x.fillStyle = '#' + new THREE.Color(color).getHexString(); x.fill();
+    x.fillStyle = '#14204a'; x.font = '800 34px "Bricolage Grotesque", system-ui, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(label, 48, 51);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:t, depthTest:false, transparent:true, toneMapped:false }));
+    sp.scale.setScalar(big ? 0.9 : 0.6); sp.renderOrder = 997; sp.raycast = () => {};
+    return sp;
+  }
+  let sortMarker = null;
+  function drawSortChips(){
+    sortGroup.clear();
+    if(!SORT) return;
+    SORT.cards.forEach((c, i) => { const d = sortDone[c.id]; if(!d?.p) return; const sp = chip(String(i + 1), zoneOf(d.zone)?.color ?? 0xffffff); sp.position.fromArray(d.p); sortGroup.add(sp); });
+    if(sort?.phase === 'place'){ sortMarker = chip(String(sort.i + 1), 0xffd34d, true); sortMarker.visible = !!sort.hover; if(sort.hover) sortMarker.position.copy(sort.hover.p); sortGroup.add(sortMarker); }
+    else sortMarker = null;
+  }
+  function sortHover(p){
+    if(!sort || sort.phase !== 'place') return;
+    if(!p){ sort.hover = null; if(sortMarker) sortMarker.visible = false; sortReadout(); return; }
+    const c = classify(p); sort.hover = c.inside ? { ...c, p } : null;
+    if(sortMarker){ sortMarker.visible = !!sort.hover; if(sort.hover) sortMarker.position.copy(p); }
+    sortReadout();
+  }
+  function sortReadout(){
+    const h = sort?.hover, txt = h ? `Here: ${zoneOf(h.zone).label} · ${horizonOf(h.horizon).label}` : 'Point inside the cone';
+    if(ui.sortHere) ui.sortHere.textContent = txt;
+    if(sortPanel.mesh.visible){ sortPanel.here = txt; sortPanel.dirty = true; }
+  }
+  function openSort(i){
+    if(!SORT) return;
+    if(gateActive()){ afterGates(() => openSort(i)); return; }
+    open = null; video = null; scen = null;
+    const next = i ?? SORT.cards.findIndex(c => !sortDone[c.id]);
+    if(next < 0){ sort = { phase:'done' }; research.log('sort_summary'); refresh(); drawSortChips(); return; }
+    sort = { i:next, phase:'place', startedAt:performance.now(), hover:null };
+    research.log('sort_card', { card:SORT.cards[next].id });
+    refresh(); drawSortChips();
+  }
+  function sortPlace(zone, horizon, p){
+    if(!sort || sort.phase !== 'place') return;
+    sort.place = { zone, horizon, p:(p || pointFor(zone, horizon)).toArray().map(v => Math.round(v * 1000) / 1000) };
+    sort.phase = 'prefer'; research.log('sort_place', { card:SORT.cards[sort.i].id, zone, horizon });
+    refresh(); drawSortChips();
+    const sp = chip(String(sort.i + 1), zoneOf(zone)?.color ?? 0xffffff); sp.position.fromArray(sort.place.p); sortGroup.add(sp);
+  }
+  async function sortPrefer(pref){
+    if(!sort || sort.phase !== 'prefer') return;
+    const card = SORT.cards[sort.i], secs = Math.round((performance.now() - sort.startedAt) / 100) / 10;
+    sort.pref = pref; sort.phase = 'feedback'; sort.counts = null; sort.countsError = '';
+    sortDone[card.id] = { ...sort.place, pref }; store.set('sort', sortDone);
+    research.log('judgement', { card:card.id, zone:sort.place.zone, horizon:sort.place.horizon, pref, rt:Math.round(secs * 1000) });
+    post({ type:'judgement', card:card.id, text:card.text, zone:sort.place.zone, horizon:sort.place.horizon, pref, seconds:secs, reading:card.reading ? card.reading.zone + ' / ' + card.reading.horizon : '' });
+    refresh();
+    const mine = sort;
+    if(CONFIG.judgeUrl){
+      try{
+        const res = await fetch(CONFIG.judgeUrl, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ model:spec.id, card:card.id, zone:sort.place.zone, horizon:sort.place.horizon, pref, sid:sidHash }) });
+        const d = await res.json().catch(() => ({}));
+        if(!res.ok || !d.counts) throw new Error(d.error || 'unavailable');
+        mine.counts = d.counts;
+      }catch(err){ mine.countsError = 'The cohort view is unavailable just now.'; }
+    } else mine.countsError = 'The cohort view is not switched on.';
+    if(sort === mine) refresh();
+  }
+  function closeSort(){ if(!sort) return; research.log('sort_close'); sort = null; noteOpen(null); refresh(); drawSortChips(); }
+  function resetSort(){ sortDone = {}; store.set('sort', sortDone); research.log('sort_reset'); openSort(0); }
+
 
   /* ---------- tutor ---------- */
   const tutor = { msgs:[], busy:false, open:false, page:0 };
@@ -443,7 +554,11 @@ export function createApp({ spec, build }){
       if(a) lines.push(`The student chose "${q.options[a.chosen]}", which is ${a.correct ? 'correct' : 'incorrect'}. The correct answer is "${q.options[a.answer]}". Teaching note: ${a.explain}`);
       else lines.push('The student has NOT answered this question yet. Do not reveal or confirm the correct option; give a hint or ask a guiding question instead.');
     }
-    return lines.join('\n').slice(0, 3500);
+    if(SORT && Object.keys(sortDone).length){
+      lines.push('The student has sorted future statements in the cone (card: zone / horizon / whether they want it): ' + SORT.cards.filter(c => sortDone[c.id]).map(c => `"${c.text}": ${sortDone[c.id].zone} / ${sortDone[c.id].horizon} / ${prefLabel[sortDone[c.id].pref]}`).join('; '));
+      if(sort?.i != null && sort.phase !== 'done') lines.push(`They are working on the card "${SORT.cards[sort.i].text}". There is no right answer: help them examine the knowledge, trends and values behind their judgement.`);
+    }
+    return lines.join('\n').slice(0, 3800);
   }
   let lastQid = null;
   function suggestions(){
@@ -548,11 +663,16 @@ export function createApp({ spec, build }){
   ui.scen = el('div', { class:'scrim side', hidden:true });
   ui.scenCard = el('div', { class:'card', role:'dialog', 'aria-labelledby':'stitle' });
   ui.scen.append(ui.scenCard);
+  /* card sort (side card) */
+  ui.sort = el('div', { class:'scrim side', hidden:true });
+  ui.sortCard = el('div', { class:'card', role:'dialog', 'aria-labelledby':'sorttitle' });
+  ui.sort.append(ui.sortCard);
+  if(SORT) ui.hud.querySelector('.btns').append(el('button', { type:'button', text:SORT.button || 'Sort the futures', onclick:() => openSort() }));
   /* 360 video controls */
   ui.vplay = el('button', { type:'button', text:'Play video', hidden:!panoVideo, onclick:() => togglePanoVideo() });
   ui.vsound = el('button', { type:'button', text:'Sound on', hidden:!panoVideo, onclick:() => togglePanoSound() });
   ui.dock.firstChild.prepend(ui.vplay, ui.vsound);
-  document.body.append(ui.hud, ui.dock, ui.quiz, ui.gate, ui.tutor, ui.consent, ui.video, ui.scen);
+  document.body.append(ui.hud, ui.dock, ui.quiz, ui.gate, ui.tutor, ui.consent, ui.video, ui.scen, ui.sort);
 
   /* ---------- consent (research studies only), then student number ---------- */
   let consentDecided = !research.requested, afterConsent = null;
@@ -598,7 +718,7 @@ export function createApp({ spec, build }){
     if(tutor.open && !renderer.xr.isPresenting) setTimeout(() => ui.tInput.focus(), 30);
   }
   addEventListener('keydown', e => {
-    if(e.key === 'Escape'){ if(!ui.video.hidden) finishVideo('close'); else if(!ui.quiz.hidden) closeQuiz(); else if(!ui.scen.hidden) closeScenario(); else if(!ui.tutor.hidden) toggleTutor(false); }
+    if(e.key === 'Escape'){ if(!ui.video.hidden) finishVideo('close'); else if(!ui.quiz.hidden) closeQuiz(); else if(!ui.scen.hidden) closeScenario(); else if(!ui.sort.hidden) closeSort(); else if(!ui.tutor.hidden) toggleTutor(false); }
     if(e.code === 'Space' && e.target === document.body){ e.preventDefault(); setPlaying(!playing); }
   });
 
@@ -676,6 +796,61 @@ export function createApp({ spec, build }){
     } else card.append(el('div', { class:'actions' }, el('button', { type:'button', text:'Leave scenario', onclick:closeScenario })));
   }
 
+  function renderSortDom(){
+    const card = ui.sortCard; card.replaceChildren(); ui.sortHere = null;
+    const N = SORT.cards.length, done = Object.keys(sortDone).length;
+    if(sort.phase === 'done'){
+      const by = {}; for(const d of Object.values(sortDone)) by[d.zone] = (by[d.zone] || 0) + 1;
+      const pr = {}; for(const d of Object.values(sortDone)) pr[d.pref] = (pr[d.pref] || 0) + 1;
+      card.append(el('div', { class:'eyebrow', text:`${SORT.title} · your map` }), el('h2', { id:'sorttitle', text:'Your futures map' }),
+        el('p', { text:`You placed ${done} of ${N} futures. The coloured chips in the cone are your judgements: each one is a claim about what you think knowable, likely or wanted, made from where you stand now.` }),
+        bars(SORT.cone.zones.concat([SORT.cone.beyond]).map(z => [z.label, by[z.id] || 0, z.color])),
+        el('p', { text:`Preferable ${pr.yes || 0} · neutral ${pr.neutral || 0} · un-preferred ${pr.no || 0}. ${SORT.closing || ''}` }),
+        el('div', { class:'actions' }, el('button', { type:'button', text:'Ask the tutor', onclick:() => { toggleTutor(true); askTutor('Look at how I sorted the futures. What does my map say about how I think about the future?'); } }),
+          el('button', { type:'button', text:'Start again', onclick:resetSort }), el('button', { type:'button', class:'primary', text:'Close', onclick:closeSort })));
+      return;
+    }
+    const c = SORT.cards[sort.i];
+    card.append(el('div', { class:'eyebrow', text:`${SORT.title} · card ${sort.i + 1} of ${N}` }), el('div', { class:'cardtxt', id:'sorttitle', text:c.text }));
+    if(sort.phase === 'place'){
+      card.append(el('p', { text:SORT.instructions }));
+      ui.sortHere = el('div', { class:'here', 'aria-live':'polite' }); card.append(ui.sortHere); sortReadout();
+      const pick = { zone:null, horizon:null };
+      const zb = el('div', { class:'zbtns', role:'group', 'aria-label':'Zone' }), hb = el('div', { class:'zbtns', role:'group', 'aria-label':'Horizon' });
+      const placeBtn = el('button', { type:'button', class:'primary', text:'Place it', disabled:true, onclick:() => sortPlace(pick.zone, pick.horizon) });
+      const sync = () => { [...zb.children].forEach(b => b.classList.toggle('on', b.dataset.v === pick.zone)); [...hb.children].forEach(b => b.classList.toggle('on', b.dataset.v === pick.horizon)); placeBtn.disabled = !(pick.zone && pick.horizon); };
+      SORT.cone.zones.forEach(z => zb.append(el('button', { type:'button', 'data-v':z.id, text:z.label, onclick:() => { pick.zone = z.id; sync(); } })));
+      SORT.cone.horizons.forEach(h => hb.append(el('button', { type:'button', 'data-v':h.id, text:h.label, onclick:() => { pick.horizon = h.id; sync(); } })));
+      card.append(el('p', { text:'Or choose with buttons:' }), zb, hb,
+        el('div', { class:'actions' }, el('button', { type:'button', text:'Close', onclick:closeSort }), el('button', { type:'button', text:'Skip', onclick:() => openSort((sort.i + 1) % N) }), placeBtn));
+      return;
+    }
+    const pl = sort.place, z = zoneOf(pl.zone), hz = horizonOf(pl.horizon);
+    if(sort.phase === 'prefer'){
+      card.append(el('p', { text:`You placed it in ${z.label} · ${hz.label}. That is a judgement about knowledge and likelihood. Now a separate, value judgement:` }),
+        el('h2', { text:'Would you want this future?' }),
+        el('div', { class:'opts' }, ...[['yes', 'Yes: it is preferable'], ['neutral', 'Neutral or unsure'], ['no', 'No: it is un-preferred']].map(([v, t]) => el('button', { type:'button', class:'opt', onclick:() => sortPrefer(v) }, el('span', { text:t })))),
+        el('div', { class:'actions' }, el('button', { type:'button', text:'Move it', onclick:() => { sort.phase = 'place'; refresh(); drawSortChips(); } })));
+      return;
+    }
+    const r = c.reading, rz = r && zoneOf(r.zone), rh = r && horizonOf(r.horizon);
+    card.append(el('div', { class:'fb' }, el('strong', { text:`Your judgement: ${z.label} · ${hz.label} · ${prefLabel[sort.pref]}` }),
+      r ? el('p', { text:`${rz.label} · ${rh.label} is one reasonable futurist reading. ${r.why}` }) : null,
+      el('div', { class:'ref', text:r && r.zone === pl.zone ? 'You agree on the zone. Would someone with different knowledge or values?' : 'You differ on the zone. Neither is wrong: what knowledge, trend or value led you there?' })));
+    if(sort.counts){
+      const n = sort.counts.n || 0, zc = sort.counts.zones || {};
+      card.append(el('p', { text:`How the cohort sorted it (${n} ${n === 1 ? 'person' : 'people'}):` }),
+        bars(SORT.cone.zones.concat([SORT.cone.beyond]).filter(z => zc[z.id] || z.id !== 'beyond').map(zz => [zz.label, zc[zz.id] || 0, zz.color, zz.id === pl.zone])));
+    } else card.append(el('p', { class:'checking', text:sort.countsError || 'Loading how the cohort sorted it…' }));
+    card.append(el('div', { class:'actions' }, el('button', { type:'button', text:'Close', onclick:closeSort }),
+      el('button', { type:'button', class:'primary', text:Object.keys(sortDone).length >= N ? 'See my map' : 'Next card', onclick:() => openSort() })));
+  }
+  function bars(rows){
+    const max = Math.max(1, ...rows.map(r => r[1]));
+    return el('div', { class:'bars' }, ...rows.map(([lab, v, col, mine]) => el('div', { class:'b' + (mine ? ' mine' : '') },
+      el('span', { text:lab + (mine ? ' (you)' : '') }), el('span', { class:'t' }, el('i', { style:`width:${v / max * 100}%;background:#${new THREE.Color(col).getHexString()}` })), el('span', { text:String(v) }))));
+  }
+
   /* ---------- refresh everything after a state change ---------- */
   function refresh(){
     if(open?.qid) lastQid = open.qid;
@@ -693,12 +868,15 @@ export function createApp({ spec, build }){
       other.remove(); renderVideoDom();
     }
     ui.scen.hidden = xr || !scen;
+    ui.sort.hidden = xr || !sort;
+    if(sort && !xr) renderSortDom();
+    sortPanel.mesh.visible = xr && !!sort; sortPanel.dirty = true;
     if(scen && !xr) renderScenarioDom();
     vidPlane.visible = xr && !!video && !video.yt; vidPanel.mesh.visible = xr && !!video;
     vidPanel.dirty = true;
     ui.tutor.hidden = xr || !tutor.open;
     if(tutor.open && !xr) renderTutorDom();
-    quizPanel.mesh.visible = xr && (!!open || !!scen); tutorPanel.mesh.visible = xr && tutor.open;
+    quizPanel.mesh.visible = xr && (!!open || !!scen) && !sort; tutorPanel.mesh.visible = xr && tutor.open;
     hud.dirty = quizPanel.dirty = tutorPanel.dirty = true;
     pins.forEach(p => p.setState());
   }
@@ -764,8 +942,64 @@ export function createApp({ spec, build }){
 
   /* ---------- in-headset panels ---------- */
   const hud = new Panel(1024, 600, 0.62), quizPanel = new Panel(1024, 1000, 0.78), tutorPanel = new Panel(1024, 1000, 0.72), keypad = new Panel(1024, 900, 0.6);
-  const vidPanel = new Panel(1024, 200, 0.64), consentPanel = new Panel(1024, 1000, 0.7);
-  for(const p of [hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel]) scene.add(p.mesh);
+  const vidPanel = new Panel(1024, 200, 0.64), consentPanel = new Panel(1024, 1000, 0.7), sortPanel = new Panel(1024, 1000, 0.78);
+  for(const p of [hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel, sortPanel]) scene.add(p.mesh);
+  sortPanel.pick = { zone:null, horizon:null }; sortPanel.here = '';
+  sortPanel.draw = p => {
+    p.bg(); if(!sort) return;
+    const N = SORT.cards.length, hx = c => '#' + new THREE.Color(c).getHexString();
+    if(sort.phase === 'done'){
+      const by = {}; for(const d of Object.values(sortDone)) by[d.zone] = (by[d.zone] || 0) + 1;
+      p.text('YOUR FUTURES MAP', 54, 90, { size:26, weight:700, color:'#17a3a0' });
+      p.para(`You placed ${Object.keys(sortDone).length} of ${N} futures. The chips in the cone are your judgements, made from where you stand now.`, 54, 150, 916, { size:30, maxLines:3 });
+      let y = 300; const max = Math.max(1, ...Object.values(by));
+      for(const z of SORT.cone.zones.concat([SORT.cone.beyond])){ p.text(z.label, 54, y + 30, { size:26, weight:600 }); p.rr(330, y + 8, 560 * (by[z.id] || 0) / max + 4, 30, 15); p.ctx.fillStyle = hx(z.color); p.ctx.fill(); p.text(String(by[z.id] || 0), 920, y + 30, { size:26, font:'mono' }); y += 58; }
+      p.button('reset', 54, 880, 440, 90, 'Start again'); p.button('close', 530, 880, 440, 90, 'Close', { fill:'#2b4fd8', color:'#fff' });
+      return;
+    }
+    const c = SORT.cards[sort.i];
+    p.text(`${SORT.title.toUpperCase()} · CARD ${sort.i + 1} OF ${N}`, 54, 82, { size:24, weight:700, color:'#17a3a0' });
+    p.rr(44, 108, 936, 150, 24); p.ctx.fillStyle = '#fff7d6'; p.ctx.fill();
+    p.para(c.text, 70, 150, 884, { size:32, weight:700, lh:1.25, maxLines:3 });
+    if(sort.phase === 'place'){
+      p.para('Point into the cone and pull the trigger to place it: further from the centre is less likely, further along is later.', 54, 310, 916, { size:24, color:'#4b5679', maxLines:2 });
+      p.text(sortPanel.here || 'Point inside the cone', 54, 400, { size:28, weight:700, font:'mono', color:'#2b4fd8' });
+      p.text('Or choose:', 54, 460, { size:22, color:'#4b5679' });
+      SORT.cone.zones.forEach((z, i) => p.button('z' + z.id, 54 + (i % 3) * 312, 480 + Math.floor(i / 3) * 86, 296, 72, z.label, { size:22, fill:sortPanel.pick.zone === z.id ? '#2b4fd8' : '#f3f0e9', color:sortPanel.pick.zone === z.id ? '#fff' : '#14204a' }));
+      SORT.cone.horizons.forEach((h, i) => p.button('h' + h.id, 54 + i * 312, 670, 296, 72, h.label, { size:22, fill:sortPanel.pick.horizon === h.id ? '#2b4fd8' : '#f3f0e9', color:sortPanel.pick.horizon === h.id ? '#fff' : '#14204a' }));
+      p.button('close', 54, 880, 280, 90, 'Close'); p.button('skip', 352, 880, 280, 90, 'Skip');
+      if(sortPanel.pick.zone && sortPanel.pick.horizon) p.button('place', 650, 880, 320, 90, 'Place it', { fill:'#2b4fd8', color:'#fff' });
+      return;
+    }
+    const z = zoneOf(sort.place.zone), hz = horizonOf(sort.place.horizon);
+    if(sort.phase === 'prefer'){
+      p.para(`You placed it in ${z.label} · ${hz.label}. Now a separate, value judgement: would you want this future?`, 54, 320, 916, { size:30, maxLines:3 });
+      [['yes', 'Yes: preferable'], ['neutral', 'Neutral or unsure'], ['no', 'No: un-preferred']].forEach(([v, t], i) => p.button('p' + v, 54, 470 + i * 116, 916, 100, t, { size:28 }));
+      p.button('move', 54, 880, 916, 90, 'Move it');
+      return;
+    }
+    const r = c.reading;
+    p.text(`You: ${z.label} · ${hz.label} · ${prefLabel[sort.pref]}`, 54, 310, { size:28, weight:800, color:'#2b4fd8', max:916 });
+    let y = r ? p.para(`One futurist reading: ${zoneOf(r.zone).label} · ${horizonOf(r.horizon).label}. ${r.why}`, 54, 360, 916, { size:24, color:'#4b5679', lh:1.3, maxLines:6 }) + 10 : 360;
+    if(sort.counts){
+      const zc = sort.counts.zones || {}, max = Math.max(1, ...Object.values(zc));
+      p.text(`The cohort (${sort.counts.n || 0}):`, 54, y + 26, { size:24, weight:700 }); y += 44;
+      for(const zz of SORT.cone.zones){ p.text(zz.label + (zz.id === sort.place.zone ? ' ◀' : ''), 54, y + 26, { size:22 }); p.rr(330, y + 6, 560 * (zc[zz.id] || 0) / max + 4, 24, 12); p.ctx.fillStyle = hx(zz.color); p.ctx.fill(); y += 38; }
+    } else p.text(sort.countsError || 'Loading the cohort view…', 54, y + 30, { size:24, color:'#4b5679' });
+    p.button('close', 54, 880, 440, 90, 'Close'); p.button('next', 530, 880, 440, 90, Object.keys(sortDone).length >= N ? 'See my map' : 'Next card', { fill:'#2b4fd8', color:'#fff' });
+  };
+  sortPanel.onClick = id => {
+    if(!id || !sort) return;
+    if(id === 'close') closeSort();
+    else if(id === 'reset') resetSort();
+    else if(id === 'skip') openSort((sort.i + 1) % SORT.cards.length);
+    else if(id === 'next') openSort();
+    else if(id === 'move'){ sort.phase = 'place'; refresh(); drawSortChips(); }
+    else if(id === 'place'){ sortPlace(sortPanel.pick.zone, sortPanel.pick.horizon); sortPanel.pick = { zone:null, horizon:null }; }
+    else if(id[0] === 'z'){ sortPanel.pick.zone = id.slice(1); sortPanel.dirty = true; }
+    else if(id[0] === 'h'){ sortPanel.pick.horizon = id.slice(1); sortPanel.dirty = true; }
+    else if(id[0] === 'p') sortPrefer(id.slice(1));
+  };
   let viewIdx = 0;
   hud.draw = p => {
     p.bg();
@@ -943,7 +1177,7 @@ export function createApp({ spec, build }){
     else if(keypad.value.length < 10 && !(k === 'B' && keypad.value.length)) keypad.value += k;
     keypad.error = false; keypad.dirty = true;
   };
-  const panels = [consentPanel, keypad, quizPanel, tutorPanel, vidPanel, hud];
+  const panels = [consentPanel, keypad, sortPanel, quizPanel, tutorPanel, vidPanel, hud];
   document.fonts?.ready.then(() => { panels.forEach(p => p.dirty = true); });
 
   /* ---------- 360 video controls ---------- */
@@ -1118,11 +1352,21 @@ export function createApp({ spec, build }){
     ray.setFromCamera(ndc, camera);
     return ray.intersectObjects(pins.filter(p => p.visible), false)[0]?.object;
   }
+  function sortPointAt(x, y){
+    ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+    return rayToCone(ray.ray.origin, ray.ray.direction, camera.position);
+  }
   renderer.domElement.addEventListener('pointerup', e => {
     if(!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+    if(sort?.phase === 'place'){
+      const pt = sortPointAt(e.clientX, e.clientY); sortHover(pt);
+      if(sort.hover) sortPlace(sort.hover.zone, sort.hover.horizon, sort.hover.p);
+      return;
+    }
     const p = pinAt(e.clientX, e.clientY); if(p) openHotspot(p.userData.hotspot);
   });
   renderer.domElement.addEventListener('pointermove', e => {
+    if(sort?.phase === 'place' && !e.buttons){ sortHover(sortPointAt(e.clientX, e.clientY)); renderer.domElement.style.cursor = sort.hover ? 'crosshair' : ''; return; }
     if(e.buttons) return;
     renderer.domElement.style.cursor = pinAt(e.clientX, e.clientY) ? 'pointer' : '';
   });
@@ -1178,7 +1422,9 @@ export function createApp({ spec, build }){
     return ray.intersectObjects(pins.filter(p => p.visible), false)[0] || null;
   }
   function xrSelect(c){
-    const h = xrHit(c); if(!h) return;
+    const h = xrHit(c);
+    if(sort?.phase === 'place' && !h?.object.userData.panel){ sortXR(c); if(sort.hover) sortPlace(sort.hover.zone, sort.hover.horizon, sort.hover.p); return; }
+    if(!h) return;
     const panel = h.object.userData.panel;
     if(panel) panel.onClick(panel.hit(h.uv));
     else if(h.object.userData.hotspot) openHotspot(h.object.userData.hotspot);
@@ -1201,7 +1447,15 @@ export function createApp({ spec, build }){
     syncShadow();
   }
   const prevButtons = new Map(), head = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+  const _xo = new THREE.Vector3(), _xd = new THREE.Vector3(), _xe = new THREE.Vector3();
+  function sortXR(c){
+    tmpM.identity().extractRotation(c.matrixWorld);
+    _xo.setFromMatrixPosition(c.matrixWorld); _xd.set(0, 0, -1).applyMatrix4(tmpM);
+    renderer.xr.getCamera().getWorldPosition(_xe);
+    sortHover(rayToCone(_xo, _xd, _xe));
+  }
   function pollXR(dt){
+    if(sort?.phase === 'place'){ const c = ctrls.find(k => k.userData.src?.handedness === 'right' && !k.userData.src.hand) || ctrls.find(k => k.userData.src); if(c && !xrHit(c)?.object.userData.panel) sortXR(c); }
     let right = null, left = null;
     const hovers = new Map();
     for(const c of ctrls){
@@ -1256,6 +1510,7 @@ export function createApp({ spec, build }){
       renderer.xr.setFoveation?.(0.6);
       placePanel(hud, -0.78, 1.48, -0.92);
       placePanel(quizPanel, 0.72, 1.32, -0.82);
+      placePanel(sortPanel, 0.78, 1.3, -0.72);
       placePanel(tutorPanel, 1.12, 1.32, -0.12);
       placePanel(keypad, 0, 1.32, -0.75);
       placePanel(consentPanel, 0, 1.32, -0.74);
@@ -1346,13 +1601,13 @@ export function createApp({ spec, build }){
     } else if(PANO){
       renderer.render(scene, camera);
     } else {
-      composer.render();
+      if(spec.post === false) renderer.render(scene, camera); else composer.render();
       pinRoot.matrix.copy(world.matrixWorld); pinRoot.matrixWorldNeedsUpdate = true;
       renderer.autoClear = false; renderer.render(overlay, camera); renderer.autoClear = true;
     }
   });
 
-  refresh();
+  refresh(); drawSortChips();
   afterGates(maybeIntro);
-  return { scene, kit, openHotspot, openScenario, research, intro, effect, panels:{ hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel } };
+  return { scene, kit, openHotspot, openScenario, openSort, research, intro, effect, panels:{ hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel, sortPanel } };
 }

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Futures Cone · Futures primer</title>
+<meta name="description" content="Step inside the futures cone in 3D, VR or mixed reality: explore possible, plausible, probable, preferable and preposterous futures, and sort future statements yourself.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/",
+  "../../engine/config.js":"../../engine/config.js?v=8309f8be",
+  "../../engine/kit.js":"../../engine/kit.js?v=5a065302",
+  "../../engine/research.js":"../../engine/research.js?v=3748c392",
+  "../../engine/runtime.js":"../../engine/runtime.js?v=444ab992",
+  "./cone.js":"./cone.js?v=bfe3f7de",
+  "./scene.js":"./scene.js?v=cdfc6eb8",
+  "./spec.js":"./spec.js?v=cc75dcfe"
+}}
+</script>
+</head>
+<body>
+<noscript>This model needs JavaScript and WebGL. Open it in a recent browser.</noscript>
+<script type="module">
+import { createApp } from '../../engine/runtime.js';
+import { spec } from './spec.js';
+import { build } from './scene.js';
+createApp({ spec, build });
+</script>
+</body>
+</html>

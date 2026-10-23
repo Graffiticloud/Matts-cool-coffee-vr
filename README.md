@@ -9,6 +9,7 @@ Interactive 3D teaching models that run in any browser and in VR or mixed realit
 | La Sagrada Família 360: BAA heritage, tourism and commerce quiz | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/sagrada-360/ |
 | The Pyramid Field: events health and safety, crowds, operations, servicescape and experience | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/pyramid-field/ |
 | Cannes from Le Suquet 360: BAA heritage, port and cruise tourism | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/cannes-360/ |
+| The Futures Cone: futures primer with a card sort | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/futures-cone/ |
 
 ## How it fits together
 
@@ -48,6 +49,7 @@ ops/
 - **360 video**: `type:'pano'` with `pano:{ video:'<R2 url>', src:'./poster.jpg', width, height, start, fov, pinRadius }`. MP4 H.264, equirectangular 2:1, 4096×2048 at 20–30 Mbps.
 - **Branching scenario**: `scenarios:[{ id, title, start, steps:{ id:{ title, text, effect, choices:[{ label, best, next, feedback, effect }] } | { end:true, outcome, title, text, ref } } }]` and a hotspot with `scenario:'<id>'`. `scene.js` returns `{ effect(name) }` so decisions change the scene. Every decision goes to the Decisions tab.
 - **Guide intro (Synthetic Matt)**: `intro:{ src:'./intro.mp4', key:0x00ff00, similarity, smoothness, xr:{ pos, height } }`. Pure green background; keyed on the page and in the headset. Plays once per browser session; replay from the HUD.
+- **Card sort**: `sorter:{ title, instructions, cone, cards:[{ id, text, reading:{ zone, horizon, why } }] }` and a hotspot with `sorter:true`. Students place cards by pointing into the shape (`cone` gives the apex, length, depth, nested zone radii and horizons), then say whether they want that future. Judgements go to the Judgements tab; the Worker's `/judge` returns the cohort's spread. Not scored. Set `post:false` for glowing, unlit models.
 - **Research capture**: only with `?study=CODE` on the address and the participant's consent; audio is a separate tick. Needs ethics approval before use with students.
 
 ## Answer keys (kept off the public site)
