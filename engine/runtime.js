@@ -98,6 +98,11 @@ input[type=text]{font:500 17px/1 var(--mono);padding:13px 14px;border-radius:14p
 .bars{display:flex;flex-direction:column;gap:5px}.bars .b{display:grid;grid-template-columns:120px 1fr 34px;align-items:center;gap:8px;font:600 13px/1.2 var(--display)}
 .bars .t{height:12px;border-radius:6px;background:rgba(20,32,74,.08);overflow:hidden}.bars .t i{display:block;height:100%;border-radius:6px}
 .bars .mine{color:var(--royal)}.cardtxt{font:700 19px/1.35 var(--display);color:var(--ink);padding:14px 16px;border-radius:16px;background:#fff7d6;border:2px solid #f6c42a}
+.opt.chosen{border-color:var(--royal);background:#fff}.opt.chosen .k{background:var(--royal);color:#fff}
+.choice-fb.mid{background:#eef1fb}.choice-fb.mid strong{color:var(--royal)}.path li.mid{background:#eef1fb}
+.tl-year{font:800 52px/1 var(--display);color:var(--royal);letter-spacing:-.02em}
+.tl-range{width:100%;accent-color:var(--royal);margin:4px 0}
+.tl-ticks button{padding:6px 8px!important;font-size:12px!important}
 .presenter{position:fixed;left:max(16px,env(safe-area-inset-left,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));width:min(300px,38vw);z-index:3;display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
 .presenter canvas{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 30px rgba(20,32,74,.35))}
 .presenter .btns{pointer-events:auto}
@@ -274,10 +279,11 @@ export function createApp({ spec, build }){
     const h = hById(hid);
     if(h?.scenario) return !!scenDone[h.scenario];
     if(h?.sorter) return !!SORT && SORT.cards.every(c => sortDone[c.id]);
+    if(h?.timeline) return !!TL && TL.stops.every(st => tlSeen[st.year]);
     const qs = qsFor(hid);
     return qs.length ? qs.every(q => attempt.answers[q.id]) : !!watched[hid];
   };
-  const hotspotStarted = hid => qsFor(hid).some(q => attempt.answers[q.id]) || !!watched[hid] || (!!hById(hid)?.sorter && Object.keys(store.get('sort', {})).length > 0);
+  const hotspotStarted = hid => qsFor(hid).some(q => attempt.answers[q.id]) || !!watched[hid] || (!!hById(hid)?.sorter && Object.keys(store.get('sort', {})).length > 0) || (!!hById(hid)?.timeline && Object.keys(store.get('timeline', {})).length > 0);
   const complete = () => answeredCount() === Qs.length;
 
   function post(payload){
@@ -298,6 +304,7 @@ export function createApp({ spec, build }){
     noteOpen(hid);
     if(h.scenario){ openScenario(h.scenario); return; }
     if(h.sorter){ openSort(); return; }
+    if(h.timeline){ openTimeline(); return; }
     if(h.video && !skipVideo && (!watched[hid] || !qsFor(hid).some(q => !attempt.answers[q.id]))){ openVideo(hid); return; }
     const qs = qsFor(hid);
     if(!qs.length){ open = null; noteOpen(null); refresh(); return; }
@@ -394,6 +401,7 @@ export function createApp({ spec, build }){
   const scById = id => SC.find(x => x.id === id);
   function openScenario(id){
     const s = scById(id); if(!s) return;
+    if(tl) closeTimeline();
     open = null; video = null;
     scen = { s, stepId:s.start, chosen:null, startedAt:performance.now(), path:[], stepNo:1 };
     research.log('scenario_start', { scenario:id });
@@ -424,6 +432,17 @@ export function createApp({ spec, build }){
   function continueScenario(){
     const st = scen.s.steps[scen.stepId], c = st.choices[scen.chosen];
     scen.stepId = c.next; scen.stepNo++; enterStep();
+  }
+  /* reflective scenarios (mode:'reflect') have positions to take, not right answers: neutral labels, no "good practice" score */
+  const isReflect = () => scen?.s.mode === 'reflect';
+  const scenHasBest = s => Object.values(s.steps).some(st => (st.choices || []).some(c => c.best));
+  function choiceHead(c){ return isReflect() ? (c.tag || (c.best ? 'A strong reading' : 'Another way to see it')) : c.best ? 'Good call' : 'Consider the consequences'; }
+  function choiceTone(c){ return isReflect() ? (c.best ? 'ok' : 'mid') : c.best ? 'ok' : 'bad'; }
+  function scenSummary(){
+    const b = scen.path.filter(x => x.best).length, n = scen.path.length;
+    if(!isReflect()) return `${b} of ${n} decisions matched good practice.`;
+    if(scen.s.summary) return scen.s.summary.replace('{n}', n).replace('{best}', b);
+    return scenHasBest(scen.s) ? `${b} of ${n} of your readings matched the futurist reading.` : `You took ${n} positions. None is the answer: each is a stance you could defend.`;
   }
   function closeScenario(){
     if(!scen) return;
@@ -497,6 +516,7 @@ export function createApp({ spec, build }){
   function openSort(i){
     if(!SORT) return;
     if(gateActive()){ afterGates(() => openSort(i)); return; }
+    if(tl) closeTimeline();
     open = null; video = null; scen = null;
     const next = i ?? SORT.cards.findIndex(c => !sortDone[c.id]);
     if(next < 0){ sort = { phase:'done' }; research.log('sort_summary'); refresh(); drawSortChips(); return; }
@@ -533,6 +553,64 @@ export function createApp({ spec, build }){
   function closeSort(){ if(!sort) return; research.log('sort_close'); sort = null; noteOpen(null); refresh(); drawSortChips(); }
   function resetSort(){ sortDone = {}; store.set('sort', sortDone); research.log('sort_reset'); openSort(0); }
 
+  /* ---------- time scrubber: move through dated "presents" and watch ideas migrate between zones ---------- */
+  const TL = spec.timeline || null;
+  let tl = null;                                     // { v, target, playing, stop, year }
+  let tlV = 0, tlSeen = store.get('timeline', {});   // year -> true once visited
+  const tlN = () => TL.stops.length;
+  function tlYearAt(v){
+    const i = Math.min(Math.floor(v), tlN() - 1), f = v - i, a = TL.stops[i], b = TL.stops[Math.min(i + 1, tlN() - 1)];
+    return Math.round(a.year + (b.year - a.year) * f);
+  }
+  function openTimeline(){
+    if(!TL) return;
+    if(gateActive()){ afterGates(openTimeline); return; }
+    if(scen) closeScenario(); if(sort) closeSort();
+    open = null; video = null;
+    tl = { v:tlV, target:null, playing:false, stop:-1, year:null };
+    research.log('timeline_open');
+    tlBuildDom(); tlSet(tlV, true); refresh();
+  }
+  function closeTimeline(){
+    if(!tl) return;
+    research.log('timeline_close', { year:tl.year });
+    tlV = tl.v; tl = null;
+    try{ sceneApi.timeline?.(null); }catch(e){ console.warn('timeline', e); }
+    noteOpen(null); refresh();
+  }
+  function tlSet(v, force){
+    v = clamp(v, 0, tlN() - 1);
+    if(!force && Math.abs(v - tl.v) < 1e-4) return;
+    tl.v = v;
+    try{ sceneApi.timeline?.(v, TL); }catch(e){ console.warn('timeline', e); }
+    const stop = Math.round(v), year = tlYearAt(v);
+    if(stop !== tl.stop){
+      tl.stop = stop;
+      const yr = TL.stops[stop].year;
+      if(!tlSeen[yr]){ tlSeen[yr] = true; store.set('timeline', tlSeen); pins.forEach(p => p.setState?.()); }
+      research.log('timeline_stop', { year:yr });
+      tlPanel.dirty = true;
+    }
+    if(year !== tl.year){ tl.year = year; tlPanel.dirty = true; }
+    if(!renderer.xr.isPresenting) tlUpdateDom();
+  }
+  function tlGo(i){ if(!tl) return; tl.playing = false; tl.target = clamp(i, 0, tlN() - 1); tlPanel.dirty = true; tlUpdateDom(); }
+  function tlPlay(){
+    if(!tl) return;
+    if(tl.playing){ tl.playing = false; } else { if(tl.v >= tlN() - 1.001) tlSet(0); tl.target = null; tl.playing = true; }
+    research.log(tl.playing ? 'timeline_play' : 'timeline_pause'); tlPanel.dirty = true; tlUpdateDom();
+  }
+  function tlTick(dt){
+    if(!tl) return;
+    if(tl.playing){
+      const v = tl.v + dt / (TL.secondsPerStop || 3.2);
+      if(v >= tlN() - 1){ tl.playing = false; tlSet(tlN() - 1); tlPanel.dirty = true; tlUpdateDom(); } else tlSet(v);
+    } else if(tl.target != null){
+      const d = tl.target - tl.v, step = dt * 1.6;
+      if(Math.abs(d) <= step){ tlSet(tl.target); tl.target = null; } else tlSet(tl.v + Math.sign(d) * step);
+    }
+  }
+
 
   /* ---------- tutor ---------- */
   const tutor = { msgs:[], busy:false, open:false, page:0 };
@@ -558,6 +636,12 @@ export function createApp({ spec, build }){
       lines.push('The student has sorted future statements in the cone (card: zone / horizon / whether they want it): ' + SORT.cards.filter(c => sortDone[c.id]).map(c => `"${c.text}": ${sortDone[c.id].zone} / ${sortDone[c.id].horizon} / ${prefLabel[sortDone[c.id].pref]}`).join('; '));
       if(sort?.i != null && sort.phase !== 'done') lines.push(`They are working on the card "${SORT.cards[sort.i].text}". There is no right answer: help them examine the knowledge, trends and values behind their judgement.`);
     }
+    if(tl){
+      const st = TL.stops[tl.stop];
+      lines.push(`The student is using the time scrubber, standing in ${st.year}: ${st.title}. ${st.text}`);
+      if(TL.ideas) lines.push(`Where the model places each idea, as judged from ${st.year}: ` + TL.ideas.map(d => `${d.label}: ${d.at[tl.stop]}`).join('; ') + '. These are illustrative readings, not facts; invite the student to contest them.');
+    }
+    if(scen?.s.mode === 'reflect') lines.push(`The student is in the reflective scenario "${scen.s.title}", on "${scen.s.steps[scen.stepId].title}". There is no right answer: steelman the position they took, then give the strongest counter-argument.`);
     return lines.join('\n').slice(0, 3800);
   }
   let lastQid = null;
@@ -570,6 +654,7 @@ export function createApp({ spec, build }){
       out.push(`Explain ${h.concept} in simple terms`);
       out.push(`Give me a real-world example of ${h.concept}`);
     }
+    if(tl && TL.suggestions) for(const s of TL.suggestions) if(out.length < 2) out.push(s);
     for(const s of spec.tutor.suggestions || []) if(out.length < 4) out.push(s);
     return out.slice(0, 4);
   }
@@ -668,11 +753,16 @@ export function createApp({ spec, build }){
   ui.sortCard = el('div', { class:'card', role:'dialog', 'aria-labelledby':'sorttitle' });
   ui.sort.append(ui.sortCard);
   if(SORT) ui.hud.querySelector('.btns').append(el('button', { type:'button', text:SORT.button || 'Sort the futures', onclick:() => openSort() }));
+  /* time scrubber (side card) */
+  ui.tl = el('div', { class:'scrim side', hidden:true });
+  ui.tlCard = el('div', { class:'card tl', role:'dialog', 'aria-labelledby':'tltitle' });
+  ui.tl.append(ui.tlCard);
+  if(TL) ui.hud.querySelector('.btns').append(el('button', { type:'button', text:TL.button || 'Scrub through time', onclick:() => openTimeline() }));
   /* 360 video controls */
   ui.vplay = el('button', { type:'button', text:'Play video', hidden:!panoVideo, onclick:() => togglePanoVideo() });
   ui.vsound = el('button', { type:'button', text:'Sound on', hidden:!panoVideo, onclick:() => togglePanoSound() });
   ui.dock.firstChild.prepend(ui.vplay, ui.vsound);
-  document.body.append(ui.hud, ui.dock, ui.quiz, ui.gate, ui.tutor, ui.consent, ui.video, ui.scen, ui.sort);
+  document.body.append(ui.hud, ui.dock, ui.quiz, ui.gate, ui.tutor, ui.consent, ui.video, ui.scen, ui.sort, ui.tl);
 
   /* ---------- consent (research studies only), then student number ---------- */
   let consentDecided = !research.requested, afterConsent = null;
@@ -718,7 +808,7 @@ export function createApp({ spec, build }){
     if(tutor.open && !renderer.xr.isPresenting) setTimeout(() => ui.tInput.focus(), 30);
   }
   addEventListener('keydown', e => {
-    if(e.key === 'Escape'){ if(!ui.video.hidden) finishVideo('close'); else if(!ui.quiz.hidden) closeQuiz(); else if(!ui.scen.hidden) closeScenario(); else if(!ui.sort.hidden) closeSort(); else if(!ui.tutor.hidden) toggleTutor(false); }
+    if(e.key === 'Escape'){ if(!ui.video.hidden) finishVideo('close'); else if(!ui.quiz.hidden) closeQuiz(); else if(!ui.scen.hidden) closeScenario(); else if(!ui.sort.hidden) closeSort(); else if(!ui.tl.hidden) closeTimeline(); else if(!ui.tutor.hidden) toggleTutor(false); }
     if(e.code === 'Space' && e.target === document.body){ e.preventDefault(); setPlaying(!playing); }
   });
 
@@ -774,28 +864,52 @@ export function createApp({ spec, build }){
   function renderScenarioDom(){
     const card = ui.scenCard, st = scen.s.steps[scen.stepId]; card.replaceChildren();
     if(st.end){
-      const best = scen.path.filter(p => p.best).length;
-      card.append(el('div', { class:'eyebrow', text:`${scen.s.title} · outcome` }), el('h2', { id:'stitle', text:st.title }), el('p', { text:st.text }));
-      card.append(el('ol', { class:'path' }, ...scen.path.map(p => el('li', { class:p.best ? 'ok' : 'bad', text:`${p.title}: ${p.choice}` }))));
-      card.append(el('p', { text:`${best} of ${scen.path.length} decisions matched good practice.${st.ref ? ' ' + st.ref : ''}` }));
-      card.append(el('div', { class:'actions' }, el('button', { type:'button', text:'Ask the tutor', onclick:() => { toggleTutor(true); askTutor(`Talk me through the ${scen.s.title} scenario and what I should have done differently.`); } }),
+      card.append(el('div', { class:'eyebrow', text:`${scen.s.title} · ${isReflect() ? 'summary' : 'outcome'}` }), el('h2', { id:'stitle', text:st.title }), el('p', { text:st.text }));
+      card.append(el('ol', { class:'path' }, ...scen.path.map(p => el('li', { class:isReflect() ? (p.best ? 'ok' : 'mid') : p.best ? 'ok' : 'bad', text:`${p.title}: ${p.choice}` }))));
+      card.append(el('p', { text:`${scenSummary()}${st.ref ? ' ' + st.ref : ''}` }));
+      card.append(el('div', { class:'actions' }, el('button', { type:'button', text:'Ask the tutor', onclick:() => { toggleTutor(true); askTutor(isReflect() ? `Push back on the positions I took in the ${scen.s.title} scenario.` : `Talk me through the ${scen.s.title} scenario and what I should have done differently.`); } }),
         el('button', { type:'button', text:'Run it again', onclick:() => openScenario(scen.s.id) }), el('button', { type:'button', class:'primary', text:'Close', onclick:closeScenario })));
       return;
     }
-    card.append(el('div', { class:'eyebrow', text:`${scen.s.title} · decision ${scen.stepNo}` }), el('h2', { id:'stitle', text:st.title }), el('p', { text:st.text }));
+    card.append(el('div', { class:'eyebrow', text:`${scen.s.title} · ${isReflect() ? (scen.s.stepWord || 'question') : 'decision'} ${scen.stepNo}` }), el('h2', { id:'stitle', text:st.title }), el('p', { text:st.text }));
     const opts = el('div', { class:'opts' });
     st.choices.forEach((c, i) => {
-      let cls = 'opt'; if(scen.chosen != null){ if(i === scen.chosen) cls += c.best ? ' right' : ' wrong'; }
+      let cls = 'opt'; if(scen.chosen != null){ if(i === scen.chosen) cls += isReflect() ? (c.best ? ' right' : ' chosen') : c.best ? ' right' : ' wrong'; }
       opts.append(el('button', { type:'button', class:cls, disabled:scen.chosen != null, onclick:() => choose(i) }, el('span', { class:'k', text:'ABCD'[i] }), el('span', { text:c.label })));
     });
     card.append(opts);
     if(scen.chosen != null){
       const c = st.choices[scen.chosen];
-      card.append(el('div', { class:'choice-fb ' + (c.best ? 'ok' : 'bad') }, el('strong', { text:c.best ? 'Good call' : 'Consider the consequences' }), el('p', { text:c.feedback })));
-      card.append(el('div', { class:'actions' }, el('button', { type:'button', class:'primary', text:'See what happens', onclick:continueScenario })));
+      card.append(el('div', { class:'choice-fb ' + choiceTone(c) }, el('strong', { text:choiceHead(c) }), el('p', { text:c.feedback })));
+      card.append(el('div', { class:'actions' }, el('button', { type:'button', class:'primary', text:isReflect() ? 'Continue' : 'See what happens', onclick:continueScenario })));
     } else card.append(el('div', { class:'actions' }, el('button', { type:'button', text:'Leave scenario', onclick:closeScenario })));
   }
 
+  function tlBuildDom(){
+    const card = ui.tlCard; card.replaceChildren();
+    ui.tlYear = el('div', { class:'tl-year', id:'tltitle', 'aria-live':'polite' });
+    ui.tlTitle = el('h2'); ui.tlText = el('p');
+    ui.tlRange = el('input', { type:'range', class:'tl-range', min:'0', max:String(tlN() - 1), step:'0.01', 'aria-label':'Move through time',
+      oninput:e => { if(!tl) return; tl.playing = false; tl.target = null; tlSet(+e.target.value); },
+      onchange:e => tlGo(Math.round(+e.target.value)) });
+    ui.tlTicks = el('div', { class:'zbtns tl-ticks', role:'group', 'aria-label':'Jump to a year' },
+      ...TL.stops.map((st, i) => el('button', { type:'button', 'data-i':String(i), text:String(st.year), onclick:() => tlGo(i) })));
+    ui.tlPlay = el('button', { type:'button', onclick:tlPlay });
+    card.append(el('div', { class:'eyebrow', text:TL.title }), ui.tlYear, ui.tlTitle, ui.tlText, ui.tlRange, ui.tlTicks,
+      TL.note ? el('div', { class:'ref', text:TL.note }) : null,
+      el('div', { class:'actions' },
+        el('button', { type:'button', text:'Ask the tutor', onclick:() => { toggleTutor(true); askTutor(`Why did the ideas sit where they did in ${TL.stops[tl?.stop ?? 0].year}, and why did some move outwards later?`); } }),
+        ui.tlPlay, el('button', { type:'button', class:'primary', text:'Close', onclick:closeTimeline })));
+  }
+  function tlUpdateDom(){
+    if(!tl || !ui.tlYear) return;
+    const st = TL.stops[tl.stop];
+    ui.tlYear.textContent = String(tl.year);
+    if(ui.tlTitle.textContent !== st.title){ ui.tlTitle.textContent = st.title; ui.tlText.textContent = st.text; }
+    if(document.activeElement !== ui.tlRange || tl.playing || tl.target != null) ui.tlRange.value = String(tl.v);
+    [...ui.tlTicks.children].forEach((b, i) => b.classList.toggle('on', i === tl.stop));
+    ui.tlPlay.textContent = tl.playing ? 'Pause' : tl.v >= tlN() - 1.001 ? 'Play from 1900'.replace('1900', TL.stops[0].year) : 'Play';
+  }
   function renderSortDom(){
     const card = ui.sortCard; card.replaceChildren(); ui.sortHere = null;
     const N = SORT.cards.length, done = Object.keys(sortDone).length;
@@ -870,13 +984,16 @@ export function createApp({ spec, build }){
     ui.scen.hidden = xr || !scen;
     ui.sort.hidden = xr || !sort;
     if(sort && !xr) renderSortDom();
+    ui.tl.hidden = xr || !tl;
+    if(tl && !xr) tlUpdateDom();
+    tlPanel.mesh.visible = xr && !!tl; tlPanel.dirty = true;
     sortPanel.mesh.visible = xr && !!sort; sortPanel.dirty = true;
     if(scen && !xr) renderScenarioDom();
     vidPlane.visible = xr && !!video && !video.yt; vidPanel.mesh.visible = xr && !!video;
     vidPanel.dirty = true;
     ui.tutor.hidden = xr || !tutor.open;
     if(tutor.open && !xr) renderTutorDom();
-    quizPanel.mesh.visible = xr && (!!open || !!scen) && !sort; tutorPanel.mesh.visible = xr && tutor.open;
+    quizPanel.mesh.visible = xr && (!!open || !!scen) && !sort && !tl; tutorPanel.mesh.visible = xr && tutor.open;
     hud.dirty = quizPanel.dirty = tutorPanel.dirty = true;
     pins.forEach(p => p.setState());
   }
@@ -942,8 +1059,32 @@ export function createApp({ spec, build }){
 
   /* ---------- in-headset panels ---------- */
   const hud = new Panel(1024, 600, 0.62), quizPanel = new Panel(1024, 1000, 0.78), tutorPanel = new Panel(1024, 1000, 0.72), keypad = new Panel(1024, 900, 0.6);
-  const vidPanel = new Panel(1024, 200, 0.64), consentPanel = new Panel(1024, 1000, 0.7), sortPanel = new Panel(1024, 1000, 0.78);
-  for(const p of [hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel, sortPanel]) scene.add(p.mesh);
+  const vidPanel = new Panel(1024, 200, 0.64), consentPanel = new Panel(1024, 1000, 0.7), sortPanel = new Panel(1024, 1000, 0.78), tlPanel = new Panel(1024, 820, 0.72);
+  for(const p of [hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel, sortPanel, tlPanel]) scene.add(p.mesh);
+  tlPanel.draw = p => {
+    p.bg(); if(!tl) return;
+    const st = TL.stops[tl.stop], n = tlN();
+    p.text(TL.title.toUpperCase(), 54, 80, { size:24, weight:700, color:'#17a3a0', max:916 });
+    p.text(String(tl.year), 54, 170, { size:84, weight:800, color:'#2b4fd8' });
+    let y = p.para(st.title, 54, 210, 916, { size:34, weight:800, lh:1.2, maxLines:2 }) + 4;
+    p.para(st.text, 54, y, 916, { size:24, color:'#4b5679', lh:1.3, maxLines:7 });
+    p.rr(54, 560, 916, 12, 6); p.ctx.fillStyle = 'rgba(20,32,74,0.12)'; p.ctx.fill();
+    p.rr(54, 560, Math.max(12, 916 * tl.v / (n - 1)), 12, 6); p.ctx.fillStyle = '#2b4fd8'; p.ctx.fill();
+    const w = 916 / n;
+    TL.stops.forEach((s2, i) => p.button('t' + i, 54 + i * w + 3, 590, w - 6, 64, String(s2.year), { size:20, fill:i === tl.stop ? '#2b4fd8' : '#f3f0e9', color:i === tl.stop ? '#fff' : '#14204a' }));
+    p.button('prev', 54, 690, 200, 90, '◀', { size:34 });
+    p.button('play', 270, 690, 290, 90, tl.playing ? 'Pause' : 'Play', { fill:'#2b4fd8', color:'#fff' });
+    p.button('next', 576, 690, 200, 90, '▶', { size:34 });
+    p.button('close', 792, 690, 178, 90, 'Close');
+  };
+  tlPanel.onClick = id => {
+    if(!tl || !id) return;
+    if(id === 'prev') tlGo(Math.round(tl.target ?? tl.v) - 1);
+    else if(id === 'next') tlGo(Math.round(tl.target ?? tl.v) + 1);
+    else if(id === 'play') tlPlay();
+    else if(id === 'close') closeTimeline();
+    else if(id[0] === 't') tlGo(+id.slice(1));
+  };
   sortPanel.pick = { zone:null, horizon:null }; sortPanel.here = '';
   sortPanel.draw = p => {
     p.bg(); if(!sort) return;
@@ -1019,6 +1160,8 @@ export function createApp({ spec, build }){
     if(intro.ok){ p.button('intro', bx, 440, 260, 60, intro.playing ? 'Stop guide' : 'Play guide', { size:22 }); bx += 278; }
     if(panoVideo){ p.button('sound', bx, 440, 220, 60, panoVideo.muted ? 'Sound on' : 'Sound off', { size:22 }); bx += 238; }
     if(research.audio){ p.button('rec', bx, 440, 300, 60, '● Recording · stop', { size:22, fill:'#fdf0e8', color:'#c2410c' }); bx += 318; }
+    if(SORT && bx + 250 <= 980){ p.button('sort', bx, 440, 250, 60, SORT.button || 'Sort the futures', { size:22 }); bx += 268; }
+    if(TL && bx + 250 <= 980){ p.button('timeline', bx, 440, 250, 60, TL.button || 'Scrub through time', { size:22 }); bx += 268; }
     p.para(PANO ? 'Look around · point at a numbered pin and pull the trigger · Left stick: turn the scene' : 'Point at a pin and pull the trigger · A/X: view · B/Y: pause · Grip: move · Right stick: zoom', 44, 540, 936, { size:22, color:'#4b5679', maxLines:1 });
   };
   hud.onClick = id => {
@@ -1027,6 +1170,8 @@ export function createApp({ spec, build }){
     if(id === 'intro') intro.playing ? intro.stop() : intro.play();
     if(id === 'sound') togglePanoSound();
     if(id === 'rec') research.stopAudio();
+    if(id === 'sort') openSort();
+    if(id === 'timeline') tl ? closeTimeline() : openTimeline();
   };
   vidPanel.draw = p => {
     p.bg();
@@ -1061,13 +1206,13 @@ export function createApp({ spec, build }){
     p.bg();
     if(scen){
       const st = scen.s.steps[scen.stepId];
-      p.text(`${scen.s.title.toUpperCase()} · ${st.end ? 'OUTCOME' : 'DECISION ' + scen.stepNo}`, 54, 82, { size:24, weight:700, color:'#c2410c', max:916 });
+      p.text(`${scen.s.title.toUpperCase()} · ${st.end ? (isReflect() ? 'SUMMARY' : 'OUTCOME') : (isReflect() ? (scen.s.stepWord || 'question').toUpperCase() : 'DECISION') + ' ' + scen.stepNo}`, 54, 82, { size:24, weight:700, color:'#c2410c', max:916 });
       let y = p.para(st.title, 54, 140, 916, { size:36, weight:800, lh:1.2, maxLines:2 }) + 6;
       y = p.para(st.text, 54, y, 916, { size:25, color:'#4b5679', lh:1.3, maxLines:st.end ? 6 : 5 }) + 14;
       if(st.end){
-        const best = scen.path.filter(x => x.best).length;
-        scen.path.slice(-4).forEach(x => { p.button('-', 54, y, 916, 62, `${x.best ? '✓' : '✗'} ${x.choice}`, { size:22, weight:600, fill:x.best ? '#ecf7ef' : '#fdf0e8' }); y += 72; });
-        p.text(`${best} of ${scen.path.length} decisions matched good practice`, 54, y + 30, { size:26, weight:700 });
+        const R = isReflect();
+        scen.path.slice(-4).forEach(x => { p.button('-', 54, y, 916, 62, `${x.best ? '✓' : R ? '•' : '✗'} ${x.choice}`, { size:22, weight:600, fill:x.best ? '#ecf7ef' : R ? '#eef1fb' : '#fdf0e8' }); y += 72; });
+        p.para(scenSummary(), 54, y + 10, 916, { size:24, weight:700, maxLines:2 });
         p.button('sagain', 54, 880, 440, 90, 'Run it again'); p.button('sclose', 530, 880, 440, 90, 'Close', { fill:'#2b4fd8', color:'#fff' });
         return;
       }
@@ -1076,10 +1221,11 @@ export function createApp({ spec, build }){
         p.button('sclose', 54, 900, 916, 70, 'Leave scenario', { size:22 });
       } else {
         const c = st.choices[scen.chosen];
-        p.button('-', 54, y, 916, 90, c.label, { size:24, weight:600, fill:c.best ? '#ecf7ef' : '#fdf0e8', stroke:c.best ? '#2f8a45' : '#c2410c' });
-        p.text(c.best ? 'Good call' : 'Consider the consequences', 54, y + 140, { size:32, weight:800, color:c.best ? '#2f8a45' : '#c2410c' });
+        const tone = choiceTone(c), col = tone === 'ok' ? '#2f8a45' : tone === 'mid' ? '#2b4fd8' : '#c2410c';
+        p.button('-', 54, y, 916, 90, c.label, { size:24, weight:600, fill:tone === 'ok' ? '#ecf7ef' : tone === 'mid' ? '#eef1fb' : '#fdf0e8', stroke:col });
+        p.text(choiceHead(c), 54, y + 140, { size:32, weight:800, color:col });
         p.para(c.feedback, 54, y + 186, 916, { size:25, color:'#4b5679', lh:1.3, maxLines:7 });
-        p.button('snext', 54, 880, 916, 90, 'See what happens', { fill:'#2b4fd8', color:'#fff' });
+        p.button('snext', 54, 880, 916, 90, isReflect() ? 'Continue' : 'See what happens', { fill:'#2b4fd8', color:'#fff' });
       }
       return;
     }
@@ -1177,7 +1323,7 @@ export function createApp({ spec, build }){
     else if(keypad.value.length < 10 && !(k === 'B' && keypad.value.length)) keypad.value += k;
     keypad.error = false; keypad.dirty = true;
   };
-  const panels = [consentPanel, keypad, sortPanel, quizPanel, tutorPanel, vidPanel, hud];
+  const panels = [consentPanel, keypad, sortPanel, tlPanel, quizPanel, tutorPanel, vidPanel, hud];
   document.fonts?.ready.then(() => { panels.forEach(p => p.dirty = true); });
 
   /* ---------- 360 video controls ---------- */
@@ -1511,6 +1657,7 @@ export function createApp({ spec, build }){
       placePanel(hud, -0.78, 1.48, -0.92);
       placePanel(quizPanel, 0.72, 1.32, -0.82);
       placePanel(sortPanel, 0.78, 1.3, -0.72);
+      placePanel(tlPanel, 0.78, 1.3, -0.72);
       placePanel(tutorPanel, 1.12, 1.32, -0.12);
       placePanel(keypad, 0, 1.32, -0.75);
       placePanel(consentPanel, 0, 1.32, -0.74);
@@ -1548,6 +1695,7 @@ export function createApp({ spec, build }){
   /* ---------- main loop ---------- */
   let simT = 0, lastNow = performance.now(), pinsShown = false;
   const tickArgs = { t:0, lt:0, ph:0, dt:0, playing:true };
+  let sideShift = 0;
   renderer.setAnimationLoop(now => {
     const dt = clamp((now - lastNow) / 1000, 0, 0.1); lastNow = Math.max(lastNow, now);
     if(playing) simT += dt;
@@ -1594,7 +1742,15 @@ export function createApp({ spec, build }){
       if(cd){ const f = Math.floor(now / 1000 * cd.fps) % cd.frames; cd.tex.offset.set((f % cd.cols) / cd.cols, 1 - (Math.floor(f / cd.cols) + 1) / cd.rows); }
     }
     intro.frame?.();
+    tlTick(dt);
 
+    /* desktop: when a side card (scenario, card sort, time scrubber) covers the right of the screen, slide the view left */
+    if(!renderer.xr.isPresenting && !PANO){
+      const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight;
+      const wantShift = (scen || sort || tl) && W > 900 ? Math.min(220, W * 0.17) : 0;
+      sideShift += (wantShift - sideShift) * Math.min(1, dt * 4);
+      if(sideShift > 0.5){ camera.setViewOffset(W, Hh, sideShift, 0, W, Hh); } else if(camera.view?.enabled){ camera.clearViewOffset(); }
+    }
     if(renderer.xr.isPresenting){
       for(const p of panels) if(p.mesh.visible && p.dirty) p.redraw();
       renderer.render(scene, camera);
@@ -1609,5 +1765,5 @@ export function createApp({ spec, build }){
 
   refresh(); drawSortChips();
   afterGates(maybeIntro);
-  return { scene, kit, openHotspot, openScenario, openSort, research, intro, effect, panels:{ hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel, sortPanel } };
+  return { scene, kit, openHotspot, openScenario, openSort, research, intro, effect, openTimeline, panels:{ hud, quizPanel, tutorPanel, keypad, vidPanel, consentPanel, sortPanel, tlPanel } };
 }
