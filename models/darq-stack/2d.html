@@ -348,6 +348,7 @@ document.getElementById('importFile').onchange = async e => {
 const ls = (() => { try { return localStorage.getItem('darq-stack-model'); } catch { return null; } })();
 if (ls){ const btn = document.getElementById('loadSaved'); btn.hidden = false; btn.onclick = () => { try { const j = JSON.parse(ls); j.colours = { ...DARQ_STACK.colours, ...(j.colours||{}) }; j.analytics = j.analytics || DARQ_STACK.analytics; load(j); } catch {} }; }
 if (location.protocol === 'blob:' || !/github\.io|localhost/.test(location.host)) document.getElementById('vrLink').href = 'https://graffiticloud.github.io/Matts-cool-coffee-vr/models/darq-stack/';
+if (window.top !== window) document.getElementById('svgDl').hidden = true;
 load(DARQ_STACK);
 requestAnimationFrame(tick);
 window.__darq = { select, load };
