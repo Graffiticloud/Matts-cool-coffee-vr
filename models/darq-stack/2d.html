@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DARQ STACK · animated model</title>
+<meta name="description" content="Dr Matt Frew's DARQ STACK model: Resources feeding Teaching & Learning, Research, Commercialisation and External Engagement, underpinned by metrics and analytics.">
+<meta property="og:title" content="DARQ STACK">
+<meta property="og:description" content="Resources, four quadrants, DARQ+ sub-nodes, return flows, cross-flows and the analytics layer, animated.">
+<style>
+:root{--bg:#F7F5F0;--ink:#1d1d1b;--muted:#6b6a64;--line:#d9d6cc;--panel:#ffffff;--red:#C8102E}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,'Times New Roman',serif}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 18px 28px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px;position:relative}
+svg#model{width:100%;height:auto;display:block}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.bar button,.seg button{font-family:inherit;font-size:13px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer;color:var(--ink)}
+.bar button:hover,.seg button:hover{border-color:#a9a69c}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed=true],.bar button[aria-pressed=true]{background:#1d1d1b;color:#fff}
+.lbl{font-size:12px;color:var(--muted);margin-right:2px}
+aside{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h2{font-size:17px;font-weight:normal;margin:0 0 4px;letter-spacing:.5px}
+.card .sub{font-size:13px;color:var(--muted);margin:0 0 10px;font-style:italic}
+.card p{font-size:14px;line-height:1.6;margin:0 0 10px}
+.card ul{margin:0;padding-left:18px;font-size:13px;line-height:1.7}
+.legend div{display:flex;align-items:center;gap:10px;font-size:13px;margin:4px 0}
+.hint{font-size:12px;color:var(--muted);line-height:1.5}
+.node{cursor:pointer;outline:none}
+.node:focus-visible circle.body{stroke:#1d1d1b;stroke-width:2.5}
+.pop{transform-box:fill-box;transform-origin:center;transform:scale(0);opacity:0;transition:transform .7s cubic-bezier(.16,1,.3,1),opacity .4s}
+.pop.on{transform:scale(1);opacity:1}
+.fade{opacity:0;transition:opacity .6s}
+.fade.on{opacity:1}
+.dim{opacity:.14 !important;transition:opacity .35s}
+.hidden{display:none}
+#hub .body{animation:none}
+.pulse{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{r:46}50%{r:49}}
+@media (prefers-reduced-motion:reduce){.pop,.fade{transition:none}.pulse{animation:none}}
+.title{font-size:22px;letter-spacing:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="bar" role="toolbar" aria-label="Model controls">
+      <button id="replay">Replay build</button>
+      <button id="motion" aria-pressed="true">Motion on</button>
+      <span class="lbl">Cross-flows</span>
+      <span class="seg" id="crossSeg"><button data-v="off">Off</button><button data-v="core" aria-pressed="true">Core</button><button data-v="all">All</button></span>
+      <button id="returns" aria-pressed="true">Return flows</button>
+      <button id="analytics" aria-pressed="true">Analytics layer</button>
+      <button id="svgDl">Download SVG</button>
+      <button id="importBtn">Import JSON</button>
+      <button id="loadSaved" hidden>Load VR edits</button>
+      <a href="./index.html" id="vrLink" style="font-size:13px;color:#1d1d1b;margin-left:4px">Open VR/MR editor</a>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <div class="stage"><svg id="model" viewBox="-345 -385 690 745" role="img" aria-labelledby="mt md"><title id="mt">DARQ STACK</title><desc id="md">Animated model: Resources at the centre feeding four quadrants and their DARQ+ sub-nodes, with return flows, cross-flows and an enveloping metrics and analytics layer.</desc></svg></div>
+  </div>
+  <aside>
+    <div class="card" id="info" aria-live="polite">
+      <h2>DARQ STACK</h2>
+      <p class="sub">Dr Matt Frew · DARQ+ (Distributed ledger, AI, eXtended reality, Quantum)</p>
+      <p>Select any circle to see what it does and how it connects. Select a quadrant to focus it; select Resources to clear the focus.</p>
+    </div>
+    <div class="card legend">
+      <div><svg width="34" height="10"><line x1="2" y1="5" x2="32" y2="5" stroke="#C8102E" stroke-width="3" stroke-linecap="round"/></svg>Resource flow</div>
+      <div><svg width="34" height="10"><line x1="2" y1="5" x2="32" y2="5" stroke="#C8102E" stroke-width="1.5" stroke-dasharray="4 3"/></svg>Return flow</div>
+      <div><svg width="34" height="10"><line x1="2" y1="5" x2="32" y2="5" stroke="#D85A30" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round"/></svg>Cross-flow</div>
+      <div><svg width="34" height="10"><line x1="2" y1="5" x2="32" y2="5" stroke="#888780" stroke-width="2.5" stroke-dasharray="1 5" stroke-linecap="round"/></svg>Data and insight feed</div>
+      <p class="hint" style="margin-top:10px">Edits made in the VR/MR editor can be exported as JSON and imported here.</p>
+    </div>
+  </aside>
+</div>
+<script type="module">
+import { DARQ_STACK } from './data.js';
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('model');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let M, byId, defaults, motion = !reduce, crossMode = 'core', showReturns = true, showAnalytics = true, focus = null, timers = [], particles = [];
+
+const PALE = { hub:['#111','#fff'], tl:['#E6F1FB','#0C447C','#378ADD'], research:['#EEEDFE','#3C3489','#7F77DD'], comm:['#FAEEDA','#633806','#BA7517'], ee:['#E1F5EE','#085041','#1D9E75'] };
+const RING_R = 320;
+// Hand-tuned paths for the default layout (model units); used only while both ends sit at their default positions.
+const OVERRIDE = {
+  'comm>resources':'M25 107 Q42 75 25 46',
+  'ee>resources':'M-104 28 Q-74 50 -42 26',
+  'metno>edxr':'M211 -154 Q190 -194 155 -210',
+  'metno>syned':'M232 -161 C205 -250 150 -285 38 -280',
+  'portfolio>bids':'M211 154 Q205 205 155 210',
+  'ktp>partner':'M-155.7 213.1 Q-190 225 -188.6 184.6',
+  'liquid>cpd':'M245.8 29.4 Q130 170 30.9 246.2',
+  'aie>cpd':'M-115.4 -201.8 C-70 -60 -80 130 -19.4 236.1',
+  'portfolio>mindcast':'M201.6 116.2 C80 80 -120 80 -229.4 21.6',
+  'analytics>resources':'M-222 -222 L-35.4 -35.4'
+};
+const el = (n, a = {}, p) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; };
+const rOf = n => n.r || (n.tier === 0 ? 46 : n.tier === 1 ? 50 : 35);
+const colOf = n => M.colours[n.group] || '#555';
+
+function lines(n){
+  const t = n.label;
+  if (n.tier === 1){
+    if (t === 'COMMERCIALISATION') return ['COMMERCIAL-','ISATION'];
+    const w = t.split(' '); if (w.length === 1) return [t];
+    if (t.includes('&')) { const i = w.indexOf('&'); return [w.slice(0,i+1).join(' '), w.slice(i+1).join(' ')]; }
+    return [w.slice(0, Math.ceil(w.length/2)).join(' '), w.slice(Math.ceil(w.length/2)).join(' ')];
+  }
+  if (t.length <= 11 || !t.includes(' ')) return [t];
+  const w = t.split(' '); const out = []; let cur = '';
+  for (const x of w) { if ((cur + ' ' + x).trim().length > 11 && cur) { out.push(cur); cur = x; } else cur = (cur + ' ' + x).trim(); }
+  out.push(cur); return out;
+}
+function subLines(s){
+  if (!s) return [];
+  if (s.includes('·')) { const p = s.split('·').map(x=>x.trim()); const o=[]; let c=''; for (const x of p){ const j=c?c+' · '+x:x; if (j.length>13 && c){o.push(c);c=x;} else c=j; } o.push(c); return o; }
+  const w = s.split(' '); const o=[]; let c='';
+  for (const x of w){ if ((c+' '+x).trim().length>11 && c){o.push(c);c=x;} else c=(c+' '+x).trim(); }
+  o.push(c); return o;
+}
+function isDefault(id){ const n = byId[id], d = defaults[id]; return !n || !d ? id === 'analytics' : n.x === d.x && n.y === d.y; }
+function pathFor(f){
+  const key = f.from + '>' + f.to;
+  if (OVERRIDE[key] && isDefault(f.from) && isDefault(f.to)) return OVERRIDE[key];
+  const a = f.from === 'analytics' ? { x: -RING_R*0.707, y: -RING_R*0.707, r: 4 } : byId[f.from];
+  const b = byId[f.to];
+  const ra = a.r ?? rOf(a), rb = rOf(b);
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, ux = dx/L, uy = dy/L;
+  const sx = a.x + ux*(ra+4), sy = a.y + uy*(ra+4), ex = b.x - ux*(rb+4), ey = b.y - uy*(rb+4);
+  if (f.type === 'cross' || f.type === 'return'){
+    const bend = f.type === 'return' ? 28 : Math.min(60, L*0.18);
+    const cx = (sx+ex)/2 - uy*bend, cy = (sy+ey)/2 + ux*bend;
+    return `M${sx.toFixed(1)} ${sy.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`;
+  }
+  return `M${sx.toFixed(1)} ${sy.toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)}`;
+}
+const STYLE = {
+  resource: f => ({ stroke: M.colours.flow, 'stroke-width': 3.5 }),
+  sub: f => ({ stroke: (PALE[byId[f.from].group]||[])[2] || '#999', 'stroke-width': 1.6 }),
+  return: f => ({ stroke: M.colours.flow, 'stroke-width': 1.6, 'stroke-dasharray': '4 3' }),
+  cross: f => ({ stroke: M.colours.cross, 'stroke-width': 1.6, 'stroke-dasharray': '2 4' }),
+  data: f => ({ stroke: M.colours.data, 'stroke-width': 2.2, 'stroke-dasharray': '1 5' })
+};
+
+function build(){
+  timers.forEach(clearTimeout); timers = []; particles = [];
+  svg.querySelectorAll(':scope > :not(title):not(desc)').forEach(n => n.remove());
+  byId = Object.fromEntries(M.nodes.map(n => [n.id, n]));
+  const defs = el('defs', {}, svg);
+  const mk = el('marker', { id:'arrow', viewBox:'0 0 10 10', refX:8, refY:5, markerWidth:6, markerHeight:6, orient:'auto-start-reverse' }, defs);
+  el('path', { d:'M2 1L8 5L2 9', fill:'none', stroke:'context-stroke', 'stroke-width':1.5, 'stroke-linecap':'round', 'stroke-linejoin':'round' }, mk);
+
+  const title = el('text', { x:0, y:-352, 'text-anchor':'middle', class:'title fade', fill:'#1d1d1b' }, svg); title.textContent = M.title;
+
+  const gRing = el('g', { id:'ring' }, svg);
+  const half = Math.asin(92/RING_R);
+  const p1 = [Math.cos(Math.PI/2+half)*RING_R, Math.sin(Math.PI/2+half)*RING_R], p2 = [Math.cos(Math.PI/2-half)*RING_R, Math.sin(Math.PI/2-half)*RING_R];
+  const ring = el('path', { d:`M${p1[0].toFixed(1)} ${p1[1].toFixed(1)} A${RING_R} ${RING_R} 0 1 1 ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`, fill:'none', stroke:M.colours.data, 'stroke-width':3, 'stroke-dasharray':'1 6', 'stroke-linecap':'round', class:'fade' }, gRing);
+  const rl = el('text', { x:0, y:322, 'text-anchor':'middle', 'dominant-baseline':'central', 'font-size':12.5, 'letter-spacing':1.6, fill:'#1d1d1b', class:'fade node', tabindex:0, 'data-id':'analytics' }, gRing); rl.textContent = M.analytics.label;
+  const rs = el('text', { x:0, y:340, 'text-anchor':'middle', 'dominant-baseline':'central', 'font-size':11.5, fill:'#6b6a64', class:'fade' }, gRing); rs.textContent = M.analytics.sub;
+
+  const gFlows = el('g', { id:'flows', fill:'none', 'stroke-linecap':'round' }, svg);
+  const flowEls = M.flows.filter(f => (f.from === 'analytics' || byId[f.from]) && byId[f.to]).map(f => {
+    const p = el('path', { d: pathFor(f), ...STYLE[f.type](f), class:'flow', 'data-type':f.type, 'data-core': f.core ? 1 : 0, 'data-from':f.from, 'data-to':f.to, 'data-both': f.both ? 1 : 0 }, f.type === 'data' ? gRing : gFlows);
+    return { f, p };
+  });
+
+  const gNodes = el('g', { id:'nodes' }, svg);
+  const nodeEls = M.nodes.map(n => {
+    const g = el('g', { class:'node pop', tabindex:0, role:'button', 'aria-label':n.label, 'data-id':n.id, id: n.tier===0 ? 'hub' : null }, gNodes);
+    const r = rOf(n);
+    if (n.tier === 0){
+      el('circle', { cx:n.x, cy:n.y, r, fill:'#111111', stroke:'#888780', 'stroke-width':.5, class:'body' }, g);
+      const t = el('text', { x:n.x, y:n.y, 'text-anchor':'middle', 'dominant-baseline':'central', fill:'#fff', 'font-size':13, 'letter-spacing':1 }, g); t.textContent = n.label;
+    } else if (n.tier === 1){
+      el('circle', { cx:n.x, cy:n.y, r, fill:colOf(n), class:'body' }, g);
+      const ls = lines(n), lh = 14, y0 = n.y - (ls.length-1)*lh/2;
+      ls.forEach((s,i) => { const t = el('text', { x:n.x, y:y0+i*lh, 'text-anchor':'middle', 'dominant-baseline':'central', fill:'#fff', 'font-size':11 }, g); t.textContent = s; });
+    } else {
+      const pal = PALE[n.group] || ['#eee','#333','#999'];
+      el('circle', { cx:n.x, cy:n.y, r, fill:pal[0], stroke:pal[2], 'stroke-width':.8, class:'body' }, g);
+      const ls = lines(n), ss = subLines(n.sub), all = [...ls.map(s=>[s,0]), ...ss.map(s=>[s,1])];
+      const lh = 13, y0 = n.y - (all.length-1)*lh/2 - (ss.length ? 2 : 0);
+      all.forEach(([s,isSub],i) => { const t = el('text', { x:n.x, y:y0+i*lh + (isSub?4:0), 'text-anchor':'middle', 'dominant-baseline':'central', fill: isSub ? pal[2] : pal[1], 'font-size': all.length>2 ? 10.5 : (Math.max(...all.map(a=>a[0].length))<6?12:11), 'font-style': isSub ? 'italic' : 'normal' }, g); t.textContent = s; });
+    }
+    return { n, g };
+  });
+  svg.insertBefore(gFlows, gNodes);
+
+  const gPart = el('g', { id:'particles' }, svg);
+  for (const { f, p } of flowEls){
+    const len = p.getTotalLength(); if (!len) continue;
+    const count = f.type === 'resource' ? 3 : f.type === 'sub' ? 1 : f.type === 'data' ? 3 : 2;
+    const col = f.type === 'sub' ? STYLE.sub(f).stroke : f.type === 'cross' ? M.colours.cross : f.type === 'data' ? '#5F5E5A' : M.colours.flow;
+    for (let i = 0; i < count; i++){
+      const c = el('circle', { r: f.type === 'resource' ? 3.4 : 2.4, fill: col, opacity: 0 }, gPart);
+      particles.push({ c, p, len, f, phase: i / count, speed: f.type === 'resource' ? 0.45 : 0.3, back: f.both && i % 2 === 1 });
+    }
+  }
+  // data orbit on the ring
+  const rlen = ring.getTotalLength();
+  for (let i = 0; i < 10; i++){ const c = el('circle', { r:2.2, fill:'#5F5E5A', opacity:0 }, gPart); particles.push({ c, p:ring, len:rlen, f:{type:'ring'}, phase:i/10, speed:0.03 }); }
+
+  // build-in sequence
+  const at = (ms, fn) => timers.push(setTimeout(fn, reduce ? 0 : ms));
+  const draw = (p, ms, dur = 600) => {
+    const solid = !p.getAttribute('stroke-dasharray');
+    const L = p.getTotalLength();
+    if (solid && !reduce){
+      p.style.strokeDasharray = L; p.style.strokeDashoffset = L; p.style.transition = 'none';
+      at(ms, () => { p.style.transition = `stroke-dashoffset ${dur}ms cubic-bezier(.65,0,.35,1)`; p.style.strokeDashoffset = 0; });
+      at(ms + dur, () => { p.setAttribute('marker-end','url(#arrow)'); p.style.strokeDasharray = ''; });
+    } else {
+      p.style.opacity = 0; p.style.transition = 'opacity .6s';
+      if (p.dataset.type) { p.setAttribute('marker-end','url(#arrow)'); if (p.dataset.both === '1') p.setAttribute('marker-start','url(#arrow)'); }
+      at(ms, () => { p.style.opacity = ''; });
+    }
+  };
+  at(50, () => title.classList.add('on'));
+  const hub = nodeEls.find(x => x.n.tier === 0);
+  at(300, () => hub.g.classList.add('on'));
+  at(1000, () => hub.g.querySelector('circle').classList.add('pulse'));
+  const order = ['tl','research','comm','ee'];
+  const qs = M.nodes.filter(n => n.tier === 1).sort((a,b) => (order.indexOf(a.id)+1||9) - (order.indexOf(b.id)+1||9));
+  qs.forEach((q, i) => {
+    const t0 = 900 + i*280;
+    flowEls.filter(x => x.f.type === 'resource' && x.f.to === q.id).forEach(x => draw(x.p, t0, 450));
+    at(t0 + 380, () => nodeEls.find(x => x.n.id === q.id).g.classList.add('on'));
+    const kids = M.nodes.filter(n => n.parent === q.id);
+    kids.forEach((k, j) => {
+      const t1 = 2300 + i*420 + j*120;
+      flowEls.filter(x => x.f.type === 'sub' && x.f.to === k.id).forEach(x => draw(x.p, t1, 320));
+      at(t1 + 260, () => nodeEls.find(x => x.n.id === k.id).g.classList.add('on'));
+    });
+  });
+  // any nodes not covered above (added in the editor)
+  nodeEls.filter(x => x.n.tier !== 0 && x.n.tier !== 1 && !x.n.parent).forEach(x => at(3800, () => x.g.classList.add('on')));
+  flowEls.filter(x => x.f.type === 'sub' && !M.nodes.find(n => n.id === x.f.to && n.parent)).forEach(x => draw(x.p, 3800, 320));
+  flowEls.filter(x => x.f.type === 'return').forEach((x, i) => draw(x.p, 4300 + i*200));
+  at(4900, () => { ring.classList.add('on'); rl.classList.add('on'); rs.classList.add('on'); });
+  flowEls.filter(x => x.f.type === 'data').forEach(x => draw(x.p, 5500));
+  flowEls.filter(x => x.f.type === 'cross').forEach((x, i) => draw(x.p, 6000 + i*180));
+  at(6400, () => { started = true; });
+  applyLayers();
+  nodeEls.forEach(({ n, g }) => {
+    g.addEventListener('click', () => select(n.id));
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(n.id); } });
+  });
+  rl.addEventListener('click', () => select('analytics'));
+  rl.addEventListener('keydown', e => { if (e.key === 'Enter') select('analytics'); });
+}
+let started = false;
+
+function applyLayers(){
+  svg.querySelectorAll('path.flow').forEach(p => {
+    const t = p.dataset.type; let show = true;
+    if (t === 'return') show = showReturns;
+    if (t === 'cross') show = crossMode === 'all' || (crossMode === 'core' && p.dataset.core === '1');
+    if (t === 'data') show = showAnalytics;
+    p.classList.toggle('hidden', !show);
+  });
+  const ring = document.getElementById('ring');
+  ring.querySelectorAll(':scope > :not(.flow)').forEach(e => e.classList.toggle('hidden', !showAnalytics));
+  applyFocus();
+}
+function related(id){
+  const s = new Set([id]);
+  for (const n of M.nodes) if (n.parent === id) s.add(n.id);
+  return s;
+}
+function applyFocus(){
+  const set = focus ? related(focus) : null;
+  svg.querySelectorAll('#nodes .node').forEach(g => g.classList.toggle('dim', !!set && !set.has(g.dataset.id) && g.dataset.id !== 'resources'));
+  svg.querySelectorAll('path.flow').forEach(p => {
+    const on = !set || set.has(p.dataset.from) || set.has(p.dataset.to);
+    p.classList.toggle('dim', !on);
+  });
+  if (crossMode === 'all' && !set) {
+    svg.querySelectorAll('path.flow[data-type=sub], path.flow[data-type=resource]').forEach(p => p.classList.add('dim'));
+    svg.querySelectorAll('#nodes .node').forEach(g => g.classList.toggle('dim', false));
+  }
+}
+function select(id){
+  const info = document.getElementById('info');
+  if (id === 'analytics'){
+    info.innerHTML = `<h2>${M.analytics.label}</h2><p class="sub">${M.analytics.sub}</p><p>${M.analytics.blurb}</p>`;
+    return;
+  }
+  const n = byId[id];
+  if (n.tier === 1) focus = focus === id ? null : id; else if (n.tier === 0) focus = null;
+  applyFocus();
+  const name = x => x === 'analytics' ? 'Metrics & analytics' : (byId[x]?.label || x);
+  const outs = M.flows.filter(f => f.from === id).map(f => `${name(f.to)} <span style="color:#6b6a64">(${f.type})</span>`);
+  const ins = M.flows.filter(f => f.to === id).map(f => `${name(f.from)} <span style="color:#6b6a64">(${f.type})</span>`);
+  info.innerHTML = `<h2>${n.label}</h2>${n.sub ? `<p class="sub">${n.sub}</p>` : ''}<p>${n.blurb || ''}</p>`
+    + (outs.length ? `<p class="hint" style="margin:6px 0 2px">Flows out</p><ul>${outs.map(x=>`<li>${x}</li>`).join('')}</ul>` : '')
+    + (ins.length ? `<p class="hint" style="margin:8px 0 2px">Flows in</p><ul>${ins.map(x=>`<li>${x}</li>`).join('')}</ul>` : '');
+}
+
+function tick(ts){
+  const t = ts / 1000;
+  for (const q of particles){
+    const visible = started && motion && !q.p.classList.contains('hidden') && !q.p.classList.contains('dim') && (q.f.type !== 'ring' || showAnalytics);
+    if (!visible){ q.c.setAttribute('opacity', 0); continue; }
+    let u = (t * q.speed * (q.f.type === 'ring' ? 1 : 120 / Math.max(q.len, 60)) + q.phase) % 1;
+    if (q.back) u = 1 - u;
+    const pt = q.p.getPointAtLength(u * q.len);
+    q.c.setAttribute('cx', pt.x); q.c.setAttribute('cy', pt.y);
+    const fadeEdge = q.f.type === 'ring' ? 1 : Math.min(1, u * 6, (1 - u) * 6);
+    q.c.setAttribute('opacity', 0.9 * fadeEdge);
+  }
+  requestAnimationFrame(tick);
+}
+
+function load(model){
+  M = structuredClone(model);
+  defaults = Object.fromEntries(DARQ_STACK.nodes.map(n => [n.id, { x:n.x, y:n.y }]));
+  started = false; focus = null; build();
+}
+
+document.getElementById('replay').onclick = () => load(M);
+document.getElementById('motion').onclick = e => { motion = !motion; e.target.setAttribute('aria-pressed', motion); e.target.textContent = motion ? 'Motion on' : 'Motion off'; };
+document.querySelectorAll('#crossSeg button').forEach(b => b.onclick = () => {
+  crossMode = b.dataset.v; document.querySelectorAll('#crossSeg button').forEach(x => x.setAttribute('aria-pressed', x === b)); applyLayers();
+});
+document.getElementById('returns').onclick = e => { showReturns = !showReturns; e.target.setAttribute('aria-pressed', showReturns); applyLayers(); };
+document.getElementById('analytics').onclick = e => { showAnalytics = !showAnalytics; e.target.setAttribute('aria-pressed', showAnalytics); applyLayers(); };
+document.getElementById('svgDl').onclick = () => {
+  const clone = svg.cloneNode(true); clone.querySelector('#particles')?.remove();
+  clone.querySelectorAll('*').forEach(e => { e.removeAttribute('class'); e.style && (e.style.opacity = ''); });
+  clone.setAttribute('xmlns', NS); clone.setAttribute('font-family', 'Georgia, serif');
+  const blob = new Blob([clone.outerHTML], { type:'image/svg+xml' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'darq-stack.svg'; a.click();
+};
+document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+document.getElementById('importFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const j = JSON.parse(await f.text()); if (!j.nodes || !j.flows) throw 0; j.colours = { ...DARQ_STACK.colours, ...(j.colours||{}) }; j.analytics = j.analytics || DARQ_STACK.analytics; load(j); }
+  catch { document.getElementById('info').innerHTML = '<h2>Import failed</h2><p>That file is not a DARQ STACK export.</p>'; }
+};
+const ls = (() => { try { return localStorage.getItem('darq-stack-model'); } catch { return null; } })();
+if (ls){ const btn = document.getElementById('loadSaved'); btn.hidden = false; btn.onclick = () => { try { const j = JSON.parse(ls); j.colours = { ...DARQ_STACK.colours, ...(j.colours||{}) }; j.analytics = j.analytics || DARQ_STACK.analytics; load(j); } catch {} }; }
+if (location.protocol === 'blob:' || !/github\.io|localhost/.test(location.host)) document.getElementById('vrLink').href = 'https://graffiticloud.github.io/Matts-cool-coffee-vr/models/darq-stack/';
+if (window.top !== window) document.getElementById('svgDl').hidden = true;
+load(DARQ_STACK);
+requestAnimationFrame(tick);
+window.__darq = { select, load };
+</script>
+</body>
+</html>
