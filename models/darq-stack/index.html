@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DARQ STACK · VR and MR editor</title>
+<meta name="description" content="Dr Matt Frew's DARQ STACK model in 3D, VR and mixed reality. Grab, edit, relink and restyle the model from inside the headset.">
+<meta property="og:title" content="DARQ STACK · VR and MR editor">
+<meta property="og:description" content="Resources, four quadrants, DARQ+ sub-nodes, return and cross-flows on a metrics and analytics plinth. Editable in VR and MR on Quest 3.">
+<meta name="twitter:card" content="summary">
+<style>
+:root{--ink:#1d1d1b;--muted:#6b6a64;--line:#d9d6cc}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#0f1422;font-family:Georgia,'Times New Roman',serif;color:var(--ink)}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#top{position:fixed;left:16px;top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;max-width:calc(100% - 380px)}
+#top h1{font-size:20px;letter-spacing:4px;font-weight:normal;color:#f3f1ea;margin:0 10px 0 0}
+#top button,#top a{font-family:inherit;font-size:13px;border-radius:8px;padding:7px 12px;border:1px solid #3a4157;background:#1a2033;color:#f3f1ea;cursor:pointer;text-decoration:none}
+#top button.xr{background:#C8102E;border-color:#C8102E}
+#top button:disabled{opacity:.45;cursor:not-allowed}
+#hint{position:fixed;left:16px;bottom:14px;color:#aeb3c2;font-size:12px;line-height:1.6;max-width:520px}
+#panel{position:fixed;right:12px;top:12px;bottom:12px;width:340px;background:#fbfaf6;border-radius:14px;border:1px solid var(--line);overflow:auto;padding:14px 14px 18px}
+#panel.collapsed{width:auto;bottom:auto}
+#panel.collapsed .body{display:none}
+#panel h2{font-size:15px;font-weight:normal;letter-spacing:1px;margin:0;display:flex;justify-content:space-between;align-items:center}
+#panel h2 button{font:inherit;font-size:12px;border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 8px;cursor:pointer}
+.sel{margin:10px 0 6px;padding:10px;background:#fff;border:1px solid var(--line);border-radius:10px}
+.sel .k{font-size:11px;color:var(--muted);margin:6px 0 2px}
+.sel input,.sel textarea{width:100%;font:inherit;font-size:13px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fdfdfb}
+.sel textarea{min-height:64px;resize:vertical}
+.row{margin-top:10px}
+.row .k{font-size:11px;color:var(--muted);margin-bottom:4px;letter-spacing:.5px;text-transform:uppercase}
+.row .b{display:flex;flex-wrap:wrap;gap:5px}
+.row button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 9px;cursor:pointer;color:var(--ink);min-width:30px}
+.row button:hover{border-color:#a9a69c}
+.row button.on{background:#1d1d1b;color:#fff;border-color:#1d1d1b}
+.row button:disabled{opacity:.4;cursor:not-allowed}
+.row button.sw{width:26px;height:26px;padding:0;border-radius:50%}
+.row button.sw.on{outline:2px solid #1d1d1b;outline-offset:2px;background-clip:padding-box}
+#status{font-size:12px;color:var(--muted);margin-top:12px;min-height:18px;line-height:1.5}
+@media (max-width:760px){#panel{top:auto;height:46%;left:12px;width:auto}#top{max-width:100%}#hint{display:none}}
+</style>
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<canvas id="c" aria-label="DARQ STACK 3D model"></canvas>
+<div id="top">
+  <h1>DARQ STACK</h1>
+  <button id="enterVR" class="xr" disabled>Enter VR</button>
+  <button id="enterMR" class="xr" disabled>Enter MR</button>
+  <a href="./2d.html">2D animated view</a>
+</div>
+<div id="hint">Drag to orbit · scroll to zoom · click a node to select it · drag a node to move it · Shift + drag to raise or lower it.<br>In the headset: trigger or pinch to select and press, hold and move to drag, grip on empty space to move the whole model, right thumbstick to scale and turn.</div>
+<div id="panel">
+  <h2>Editor <button id="collapse">Hide</button></h2>
+  <div class="body">
+    <div class="sel" id="selBox"></div>
+    <div id="tools"></div>
+    <div id="status" aria-live="polite"></div>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+  </div>
+</div>
+<noscript>This model needs JavaScript and WebGL. Open it in a recent browser.</noscript>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
