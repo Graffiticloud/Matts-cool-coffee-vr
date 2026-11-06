@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Practical Bench · Chemistry</title>
+<meta name="description" content="Six branching practical scenarios (titration, standard solution, constant mass, solvent extraction, reflux and distillation, collecting a gas) in 3D, VR or mixed reality, for Higher and Advanced Higher Chemistry.">
+<meta property="og:title" content="Practical Bench · Chemistry">
+<meta property="og:description" content="Make the decisions at six practical stations and see what each choice does to your results.">
+<meta property="og:image" content="https://graffiticloud.github.io/Matts-cool-coffee-vr/models/practical-bench/card.jpg">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/",
+  "../../engine/config.js":"../../engine/config.js?v=8309f8be",
+  "../../engine/kit.js":"../../engine/kit.js?v=5a065302",
+  "../../engine/research.js":"../../engine/research.js?v=3748c392",
+  "../../engine/runtime.js":"../../engine/runtime.js?v=ae4ff7bb",
+  "./layout.js":"./layout.js?v=556d6561",
+  "./scene.js":"./scene.js?v=ee635c5f",
+  "./spec.js":"./spec.js?v=a59d1cae"
+}}
+</script>
+</head>
+<body>
+<noscript>This model needs JavaScript and WebGL. Open it in a recent browser.</noscript>
+<script type="module">
+import { createApp } from '../../engine/runtime.js';
+import { spec } from './spec.js';
+import { build } from './scene.js';
+createApp({ spec, build });
+</script>
+</body>
+</html>

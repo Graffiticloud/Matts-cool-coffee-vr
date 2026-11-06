@@ -11,6 +11,8 @@ Interactive 3D teaching models that run in any browser and in VR or mixed realit
 | Cannes from Le Suquet 360: BAA heritage, port and cruise tourism | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/cannes-360/ |
 | The Futures Cone: futures primer with a card sort, time scrubber, wildcards and critique mode | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/futures-cone/ |
 | Molecules in 3D: Advanced Higher Chemistry orbitals, VSEPR, a copper complex, ethene, benzene, isomers and an SN2 reaction (open mode, for schools) | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/ah-chem-molecules/ |
+| Practical Bench: six branching chemistry practical scenarios (titration, standard solution, constant mass, solvent extraction, reflux and distillation, collecting a gas) with researching-chemistry questions (open mode, for schools) | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/practical-bench/ |
+| Structure Lab (2D page, no VR): identify unknowns from composition, MS, IR and ¹H NMR, with a 3D model linked to the NMR peaks | https://graffiticloud.github.io/Matts-cool-coffee-vr/tools/structure-lab/ |
 
 ## How it fits together
 
