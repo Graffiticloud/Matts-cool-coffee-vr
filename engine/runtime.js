@@ -178,6 +178,9 @@ export function createApp({ spec, build }){
   const PANO = spec.type === 'pano';
   const BG = spec.background ?? (PANO ? 0x111318 : 0xeeeae2);
   const H = spec.hotspots, Qs = spec.questions;
+  /* spec.open: an anonymous model for school use. No student number, no scores posted, no research capture, no tutor. */
+  const OPEN = spec.open === true, TUTOR = !OPEN && !!spec.tutor;
+  const TSPEC = spec.tutor || { name:'Tutor', greeting:'', suggestions:[], brief:'' };
   const store = {
     get(k, d){ try{ const v = localStorage.getItem(spec.id + ':' + k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
     set(k, v){ try{ localStorage.setItem(spec.id + ':' + k, JSON.stringify(v)); }catch{} }
@@ -287,7 +290,7 @@ export function createApp({ spec, build }){
   const complete = () => answeredCount() === Qs.length;
 
   function post(payload){
-    if(!CONFIG.scoresUrl || !student) return;
+    if(OPEN || !CONFIG.scoresUrl || !student) return;
     const body = JSON.stringify({ ...payload, student, model:spec.id, module:spec.moduleCode || spec.module, ts:new Date().toISOString() });
     try{ fetch(CONFIG.scoresUrl, { method:'POST', mode:'no-cors', keepalive:true, headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body }); }
     catch{ try{ navigator.sendBeacon?.(CONFIG.scoresUrl, new Blob([body], { type:'text/plain' })); }catch{} }
@@ -622,7 +625,7 @@ export function createApp({ spec, build }){
   }
   hashSid();
   function tutorContext(){
-    const lines = [spec.tutor.brief];
+    const lines = [TSPEC.brief];
     const q = qById(open?.qid) || qById(lastQid);
     if(q){
       const h = hById(q.hotspot), a = attempt.answers[q.id];
@@ -655,7 +658,7 @@ export function createApp({ spec, build }){
       out.push(`Give me a real-world example of ${h.concept}`);
     }
     if(tl && TL.suggestions) for(const s of TL.suggestions) if(out.length < 2) out.push(s);
-    for(const s of spec.tutor.suggestions || []) if(out.length < 4) out.push(s);
+    for(const s of TSPEC.suggestions || []) if(out.length < 4) out.push(s);
     return out.slice(0, 4);
   }
   async function askTutor(text){
@@ -684,7 +687,7 @@ export function createApp({ spec, build }){
   /* ---------- HTML UI ---------- */
   const ui = {};
   ui.pill = el('span', { class:'pill' }, el('i'), el('b', { text:'Live' }));
-  ui.sid = el('button', { class:'chip', type:'button', onclick:() => askStudent() });
+  ui.sid = el('button', { class:'chip', type:'button', hidden:OPEN, onclick:() => askStudent() });
   ui.bar = el('b'); ui.stats = el('div', { class:'stats' });
   ui.hud = el('div', { class:'hud glass', 'aria-live':'polite' },
     el('div', { class:'row' }, ui.pill, ui.sid),
@@ -692,7 +695,7 @@ export function createApp({ spec, build }){
     el('p', { class:'module', text:spec.module }),
     el('div', { class:'prog' }, ui.bar), ui.stats,
     el('div', { class:'btns' },
-      el('button', { type:'button', class:'primary', onclick:() => toggleTutor(true) , text:'Ask the tutor' }),
+      TUTOR ? el('button', { type:'button', class:'primary', onclick:() => toggleTutor(true) , text:'Ask the tutor' }) : null,
       el('button', { type:'button', onclick:() => restart(), text:'Start again' })));
   ui.play = el('button', { type:'button', text:'Pause', onclick:() => setPlaying(!playing) });
   ui.auto = el('button', { type:'button', text:'Auto camera', hidden:true });
@@ -721,7 +724,7 @@ export function createApp({ spec, build }){
   ui.tInput = el('input', { type:'text', id:'tutor-q', placeholder:'Ask about this case…', autocomplete:'off', maxlength:'500' });
   ui.tSend = el('button', { type:'submit', class:'primary', text:'Send' });
   ui.tutor = el('aside', { class:'tutor', hidden:true, 'aria-label':'Tutor' },
-    el('header', {}, el('h3', { text:spec.tutor.name || 'Tutor' }), el('button', { type:'button', text:'Close', onclick:() => toggleTutor(false) })),
+    el('header', {}, el('h3', { text:TSPEC.name || 'Tutor' }), el('button', { type:'button', text:'Close', onclick:() => toggleTutor(false) })),
     ui.msgs, ui.sugg,
     el('div', { class:'disclaim', text:'Answers are AI-generated. Check them against your module reading. Your student number is not sent to the AI.' }),
     el('form', { onsubmit:e => { e.preventDefault(); const v = ui.tInput.value; ui.tInput.value = ''; askTutor(v); } }, ui.tInput, ui.tSend));
@@ -765,11 +768,11 @@ export function createApp({ spec, build }){
   document.body.append(ui.hud, ui.dock, ui.quiz, ui.gate, ui.tutor, ui.consent, ui.video, ui.scen, ui.sort, ui.tl);
 
   /* ---------- consent (research studies only), then student number ---------- */
-  let consentDecided = !research.requested, afterConsent = null;
-  const gateActive = () => !consentDecided || !student;
+  let consentDecided = OPEN || !research.requested, afterConsent = null;
+  const gateActive = () => !consentDecided || (!OPEN && !student);
   function afterGates(fn){
     if(!consentDecided){ showConsent(() => afterGates(fn)); return; }
-    if(!student){ askStudent(fn); return; }
+    if(!OPEN && !student){ askStudent(fn); return; }
     fn?.();
   }
   function showConsent(then){
@@ -803,7 +806,8 @@ export function createApp({ spec, build }){
   function toggleTutor(v){
     tutor.open = v ?? !tutor.open;
     research.log(tutor.open ? 'tutor_open' : 'tutor_close');
-    if(tutor.open && !tutor.msgs.length) tutor.msgs.push({ role:'assistant', content:spec.tutor.greeting });
+    if(!TUTOR){ tutor.open = false; refresh(); return; }
+    if(tutor.open && !tutor.msgs.length) tutor.msgs.push({ role:'assistant', content:TSPEC.greeting });
     refresh();
     if(tutor.open && !renderer.xr.isPresenting) setTimeout(() => ui.tInput.focus(), 30);
   }
@@ -818,7 +822,7 @@ export function createApp({ spec, build }){
       const s = correctCount(), pct = Math.round(s / Qs.length * 100);
       card.append(el('div', { class:'eyebrow', text:`Attempt ${attempt.n} complete` }),
         el('h2', { id:'qtitle', text:'Your score' }), el('div', { class:'big', text:`${s} / ${Qs.length}` }),
-        el('p', { text:`${pct}%. ${pct >= 80 ? 'Strong work. Try again to make it stick, or ask the tutor to push you further.' : pct >= 50 ? 'Good progress. Revisit the pins you missed, then try again.' : 'Use the tutor on the questions you missed, then try again.'}${best ? ` Your best so far is ${best.pct}%.` : ''}` }),
+        el('p', { text:`${pct}%. ${pct >= 80 ? (TUTOR ? 'Strong work. Try again to make it stick, or ask the tutor to push you further.' : 'Strong work. Try again to make it stick.') : pct >= 50 ? 'Good progress. Revisit the pins you missed, then try again.' : (TUTOR ? 'Use the tutor on the questions you missed, then try again.' : 'Revisit the pins you missed and read the explanations, then try again.')}${best ? ` Your best so far is ${best.pct}%.` : ''}` }),
         el('div', { class:'actions' }, el('button', { type:'button', text:'Close', onclick:closeQuiz }), el('button', { type:'button', class:'primary', text:'Try again', onclick:restart })));
       return;
     }
@@ -839,10 +843,10 @@ export function createApp({ spec, build }){
       card.append(el('div', { class:'fb ' + (a.correct ? 'ok' : 'bad') }, el('strong', { text:a.correct ? 'Correct' : 'Not quite' }), el('p', { text:a.explain }), el('div', { class:'ref', text:a.ref })));
       const more = Qs.some(x => x.hotspot === q.hotspot && !attempt.answers[x.id]) || complete();
       card.append(el('div', { class:'actions' },
-        el('button', { type:'button', text:a.correct ? 'Ask the tutor more' : 'Ask the tutor why', onclick:() => { lastQid = q.id; const s = suggestions()[0]; toggleTutor(true); askTutor(s); } }),
+        TUTOR ? el('button', { type:'button', text:a.correct ? 'Ask the tutor more' : 'Ask the tutor why', onclick:() => { lastQid = q.id; const s = suggestions()[0]; toggleTutor(true); askTutor(s); } }) : null,
         el('button', { type:'button', class:'primary', text:complete() ? 'See my score' : more ? 'Next question' : 'Done', onclick:nextQuestion })));
     } else {
-      card.append(el('div', { class:'actions' }, el('button', { type:'button', text:'Ask for a hint', onclick:() => { lastQid = q.id; toggleTutor(true); askTutor('Give me a hint for this question'); } }), el('button', { type:'button', text:'Close', onclick:closeQuiz })));
+      card.append(el('div', { class:'actions' }, TUTOR ? el('button', { type:'button', text:'Ask for a hint', onclick:() => { lastQid = q.id; toggleTutor(true); askTutor('Give me a hint for this question'); } }) : null, el('button', { type:'button', text:'Close', onclick:closeQuiz })));
     }
   }
   function renderTutorDom(){
@@ -1153,8 +1157,8 @@ export function createApp({ spec, build }){
     p.rr(44, 250, 936, 18, 9); p.ctx.fillStyle = 'rgba(20,32,74,0.1)'; p.ctx.fill();
     if(n){ p.rr(44, 250, 936 * n / Qs.length, 18, 9); p.ctx.fillStyle = '#2b4fd8'; p.ctx.fill(); }
     p.text(`${n} of ${Qs.length} answered · ${c} correct${best ? ` · best ${best.pct}%` : ''}`, 44, 314, { size:28, weight:600 });
-    p.button('tutor', 44, 350, 300, 76, 'Ask the tutor', { fill:'#2b4fd8', color:'#ffffff' });
-    p.button('restart', 362, 350, 260, 76, 'Start again');
+    if(TUTOR) p.button('tutor', 44, 350, 300, 76, 'Ask the tutor', { fill:'#2b4fd8', color:'#ffffff' });
+    p.button('restart', TUTOR ? 362 : 44, 350, TUTOR ? 260 : 578, 76, 'Start again');
     if(!PANO || panoVideo) p.button('pause', 640, 350, 340, 76, PANO ? (panoVideo.paused ? 'Play video' : 'Pause video') : playing ? 'Pause motion' : 'Resume motion');
     let bx = 44;
     if(intro.ok){ p.button('intro', bx, 440, 260, 60, intro.playing ? 'Stop guide' : 'Play guide', { size:22 }); bx += 278; }
@@ -1233,7 +1237,7 @@ export function createApp({ spec, build }){
       const s = correctCount(), pct = Math.round(s / Qs.length * 100);
       p.text(`ATTEMPT ${attempt.n} COMPLETE`, 54, 100, { size:26, weight:700, color:'#17a3a0' });
       p.text(`${s} / ${Qs.length}`, 54, 260, { size:130, weight:600, font:'mono', color:'#2b4fd8' });
-      p.para(`${pct}%.${best ? ` Your best so far is ${best.pct}%.` : ''} Revisit the pins you missed with the tutor, then try again.`, 54, 360, 916, { size:34 });
+      p.para(`${pct}%.${best ? ` Your best so far is ${best.pct}%.` : ''} Revisit the pins you missed${TUTOR ? ' with the tutor' : ''}, then try again.`, 54, 360, 916, { size:34 });
       p.button('close', 54, 820, 430, 110, 'Close'); p.button('restart', 540, 820, 430, 110, 'Try again', { fill:'#2b4fd8', color:'#fff' });
       return;
     }
@@ -1250,13 +1254,13 @@ export function createApp({ spec, build }){
       });
       p.text(a.correct ? 'Correct' : 'Not quite', 54, y + 34, { size:32, weight:800, color:a.correct ? '#2f8a45' : '#c2410c' });
       p.para(a.explain, 54, y + 80, 916, { size:25, color:'#4b5679', lh:1.3, maxLines:7 });
-      p.button('tutor', 54, 860, 440, 100, a.correct ? 'Ask the tutor more' : 'Ask the tutor why');
+      if(TUTOR) p.button('tutor', 54, 860, 440, 100, a.correct ? 'Ask the tutor more' : 'Ask the tutor why');
       p.button('next', 530, 860, 440, 100, complete() ? 'See my score' : 'Next', { fill:'#2b4fd8', color:'#fff' });
     } else {
       order.forEach((orig, di) => { p.button('o' + di, 54, y, 916, 118, `${'ABCD'[di]}.  ${q.options[orig]}`, { size:26, weight:600, stroke:checking?.di === di ? '#2b4fd8' : undefined }); y += 132; });
       if(checking) p.text('Checking your answer…', 54, 860, { size:26, weight:700, color:'#2b4fd8' });
       else if(checkError) p.para(checkError, 54, 845, 916, { size:22, color:'#c2410c', maxLines:1 });
-      p.button('hint', 54, 880, 440, 90, 'Hint from the tutor'); p.button('close', 530, 880, 440, 90, 'Close');
+      if(TUTOR) p.button('hint', 54, 880, 440, 90, 'Hint from the tutor'); p.button('close', 530, 880, 440, 90, 'Close');
     }
   };
   quizPanel.onClick = id => {
@@ -1278,13 +1282,13 @@ export function createApp({ spec, build }){
   const TUTOR_LINES = 14;
   tutorPanel.draw = p => {
     p.bg();
-    p.text(spec.tutor.name || 'Tutor', 54, 92, { size:40, weight:800 });
+    p.text(TSPEC.name || 'Tutor', 54, 92, { size:40, weight:800 });
     p.button('close', 770, 44, 200, 70, 'Close', { size:24 });
     const lastA = [...tutor.msgs].reverse().find(m => m.role !== 'user');
     const lastU = [...tutor.msgs].reverse().find(m => m.role === 'user');
     let y = 150;
     if(lastU) y = p.para('You: ' + lastU.content, 54, y, 916, { size:24, color:'#2b4fd8', maxLines:2 }) + 14;
-    const body = tutor.busy ? 'Thinking…' : (lastA?.content || spec.tutor.greeting);
+    const body = tutor.busy ? 'Thinking…' : (lastA?.content || TSPEC.greeting);
     const lines = p.wrap(body, 916, 27, 500), pages = Math.max(1, Math.ceil(lines.length / TUTOR_LINES));
     tutor.page = Math.min(tutor.page, pages - 1);
     lines.slice(tutor.page * TUTOR_LINES, (tutor.page + 1) * TUTOR_LINES).forEach((l, i) => p.text(l, 54, y + 10 + i * 36, { size:27, color:lastA?.role === 'note' ? '#c2410c' : '#14204a' }));

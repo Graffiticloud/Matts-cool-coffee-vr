@@ -10,6 +10,7 @@ Interactive 3D teaching models that run in any browser and in VR or mixed realit
 | The Pyramid Field: events health and safety, crowds, operations, servicescape and experience | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/pyramid-field/ |
 | Cannes from Le Suquet 360: BAA heritage, port and cruise tourism | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/cannes-360/ |
 | The Futures Cone: futures primer with a card sort, time scrubber, wildcards and critique mode | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/futures-cone/ |
+| Molecules in 3D: Advanced Higher Chemistry orbitals, VSEPR, a copper complex, ethene, benzene, isomers and an SN2 reaction (open mode, for schools) | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/ah-chem-molecules/ |
 
 ## How it fits together
 
@@ -53,6 +54,7 @@ ops/
 - **Side cards**: on desktop the view slides left while a scenario, card sort or time scrubber card is open, so the scene stays visible.
 - **Guide intro (Synthetic Matt)**: `intro:{ src:'./intro.mp4', key:0x00ff00, similarity, smoothness, xr:{ pos, height } }`. Pure green background; keyed on the page and in the headset. Plays once per browser session; replay from the HUD.
 - **Card sort**: `sorter:{ title, instructions, cone, cards:[{ id, text, reading:{ zone, horizon, why } }] }` and a hotspot with `sorter:true`. Students place cards by pointing into the shape (`cone` gives the apex, length, depth, nested zone radii and horizons), then say whether they want that future. Judgements go to the Judgements tab; the Worker's `/judge` returns the cohort's spread. Not scored. Set `post:false` for glowing, unlit models.
+- **Open mode (schools)**: `open:true` switches off the student-number gate, score posting, research capture and the AI tutor, and the tutor buttons disappear. Keep `answer`, `explain` and `ref` in the spec so answers are marked in the page. Use it for models shared outside UWS, especially with under-18s.
 - **Research capture**: only with `?study=CODE` on the address and the participant's consent; audio is a separate tick. Needs ethics approval before use with students.
 
 ## Answer keys (kept off the public site)
