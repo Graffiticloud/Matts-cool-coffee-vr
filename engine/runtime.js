@@ -259,6 +259,40 @@ export function createApp({ spec, build }){
 
   /* ---------- the model's own scene ---------- */
   const kit = new Kit(world, { palette:spec.palette, seed:spec.seed ?? 7, ground:spec.ground ?? 0.16 });
+  /* GLB assets (Blender pipeline, see the blender-to-webxr skill). kit.glb(src, opts) returns a group at once, registered for
+     build-in like addBase, and fills it when the file arrives. lit:'baked' (default) swaps to unlit materials so baked lighting
+     isn't lit twice; nodes with userData.dynamic keep their PBR material. GLB meshes are kept out of the static merge. */
+  let gltfLoader = null;
+  const glbPending = [];
+  async function getGltfLoader(){
+    if(gltfLoader) return gltfLoader;
+    const [{ GLTFLoader }, { KTX2Loader }, { MeshoptDecoder }] = await Promise.all([
+      import('three/addons/loaders/GLTFLoader.js'), import('three/addons/loaders/KTX2Loader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
+    const base = new URL('libs/basis/', import.meta.resolve ? import.meta.resolve('three/addons/') : 'https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/').href;
+    const ktx2 = new KTX2Loader().setTranscoderPath(base).detectSupport(renderer);
+    return gltfLoader = new GLTFLoader().setKTX2Loader(ktx2).setMeshoptDecoder(MeshoptDecoder);
+  }
+  kit.glb = (src, { pos = [0, 0, 0], rot = [0, 0, 0], scale = 1, lit = 'baked', shadows = false, parent = null, toneMapped = true } = {}) => {
+    const g = new THREE.Group(); g.userData.glb = true;
+    g.position.set(...pos); g.rotation.set(...rot);
+    if(parent) parent.add(g); else { kit.addBase(g); kit.builds[kit.builds.length - 1].base = scale; }
+    if(parent) g.scale.setScalar(scale);
+    const done = getGltfLoader().then(l => l.loadAsync(src)).then(gltf => {
+      gltf.scene.traverse(o => {
+        if(!o.isMesh) return;
+        if(lit === 'baked' && !o.userData.dynamic){
+          const m = o.material;
+          o.material = new THREE.MeshBasicMaterial({ map:m.map || null, color:m.map ? 0xffffff : m.color, transparent:m.transparent, alphaTest:m.alphaTest, side:m.side, toneMapped:toneMapped });
+          m.dispose(); o.castShadow = false; o.receiveShadow = false;
+        } else { o.castShadow = shadows; o.receiveShadow = true; }
+      });
+      g.add(gltf.scene); g.userData.gltf = gltf;
+      return gltf.scene;
+    }).catch(e => { console.warn('glb', src, e); return null; });
+    glbPending.push(done);
+    return Object.assign(g, { ready:done });
+  };
+  for(const a of spec.assets || []) kit.glb(a.src, a);
   const sceneApi = build?.(kit, THREE) || {};
   const effect = name => { try{ sceneApi.effect?.(name); }catch(e){ console.warn('effect', name, e); } };
 
@@ -1431,7 +1465,7 @@ export function createApp({ spec, build }){
     const inv = new THREE.Matrix4().copy(world.matrixWorld).invert(), groups = new Map();
     world.traverse(o => {
       if(!o.isMesh || o.isInstancedMesh || o.material.transparent) return;
-      for(let p = o; p && p !== world; p = p.parent) if(p.userData.anim) return;
+      for(let p = o; p && p !== world; p = p.parent) if(p.userData.anim || p.userData.glb) return;
       const key = o.material.uuid + (o.castShadow ? '|s' : '|n');
       if(!groups.has(key)) groups.set(key, { mat:o.material, cast:o.castShadow, list:[] });
       groups.get(key).list.push(o);

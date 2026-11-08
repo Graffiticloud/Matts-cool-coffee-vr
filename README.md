@@ -8,6 +8,7 @@ Interactive 3D teaching models that run in any browser and in VR or mixed realit
 | Matt's Cool Coffee, inside: BAA experiential-marketing quiz | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/baa-cafe/ |
 | La Sagrada Família 360: BAA heritage, tourism and commerce quiz | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/sagrada-360/ |
 | The Pyramid Field: events health and safety, crowds, operations, servicescape and experience | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/pyramid-field/ |
+| The Pyramid Stage (realistic Blender build of the Pyramid Field) | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/pyramid-stage/ |
 | Cannes from Le Suquet 360: BAA heritage, port and cruise tourism | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/cannes-360/ |
 | The Futures Cone: futures primer with a card sort, time scrubber, wildcards and critique mode | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/futures-cone/ |
 | Molecules in 3D: Advanced Higher Chemistry orbitals, VSEPR, a copper complex, ethene, benzene, isomers and an SN2 reaction (open mode, for schools) | https://graffiticloud.github.io/Matts-cool-coffee-vr/models/ah-chem-molecules/ |
